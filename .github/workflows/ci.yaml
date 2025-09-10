@@ -22,9 +22,6 @@ jobs:
             -e DOCKER_INFLUXDB_INIT_BUCKET=signals \
             -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 \
             -p 8086:8086 influxdb:2
-          sudo docker run -d --name minio \
-            -e MINIO_ROOT_USER=miniouser -e MINIO_ROOT_PASSWORD=miniopass123 \
-            -p 9000:9000 minio/minio:latest server /data
 
       - name: Seed Timescale schema
         run: |
@@ -33,13 +30,12 @@ jobs:
           PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
 
       - name: Wait for Neo4j/Influx/MinIO
+      - name: Wait for Neo4j/Influx
         run: |
           echo "Waiting for Neo4j at http://localhost:7474 ..."
           until curl -sSf http://localhost:7474 >/dev/null; do sleep 2; done
           echo "Waiting for Influx at http://localhost:8086/health ..."
           until curl -sSf http://localhost:8086/health >/dev/null; do sleep 2; done
-          echo "Waiting for MinIO at http://localhost:9000/minio/health/live ..."
-          until curl -sSf http://localhost:9000/minio/health/live >/dev/null; do sleep 2; done
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -57,9 +53,5 @@ jobs:
           INFLUX_TOKEN: devtoken1234567890
           INFLUX_ORG: dtp-org
           INFLUX_BUCKET: signals
-          # S3-compatible storage for CI (MinIO)
-          MINIO_ENDPOINT: http://localhost:9000
-          MINIO_ACCESS_KEY: miniouser
-          MINIO_SECRET_KEY: miniopass123
-          MINIO_BUCKET: dtp-artifacts
+          DTP_SKIP_MINIO: "1"
         run: python scripts/test_all.py
