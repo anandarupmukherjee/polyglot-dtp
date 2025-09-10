@@ -11,6 +11,12 @@ Spin up Postgres/Timescale, Neo4j, InfluxDB 2, and MinIO. Run one script that wr
 ## Tear down
 `make down`
 
+## Storage back end
+- Local: MinIO at http://localhost:9000 (console http://localhost:9001).
+- CI: LocalStack S3 at http://localhost:4566.
+
+The MinIO test auto-detects which backend to use via `MINIO_ENDPOINT`.
+
 ## Notes
 - Timescale hypertable is created by `sql/timescale.sql`.
 - Influx is pre-seeded with org/bucket/token from `.env`.

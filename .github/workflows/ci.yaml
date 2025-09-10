@@ -36,15 +36,13 @@ jobs:
           --health-cmd="influx ping -h http://localhost:8086"
           --health-interval=5s --health-timeout=3s --health-retries=30
       minio:
-        image: minio/minio:latest
+        image: localstack/localstack:latest
         env:
-          MINIO_ROOT_USER: miniouser
-          MINIO_ROOT_PASSWORD: miniopass123
-        ports: ["9000:9000"]
+          SERVICES: s3
+        ports: ["4566:4566"]
         options: >-
-          --health-cmd="curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-cmd="curl -f http://localhost:4566/_localstack/health || exit 1"
           --health-interval=5s --health-timeout=3s --health-retries=30
-        command: server /data
     steps:
       - uses: actions/checkout@v4
 
@@ -70,7 +68,9 @@ jobs:
           INFLUX_TOKEN: devtoken1234567890
           INFLUX_ORG: dtp-org
           INFLUX_BUCKET: signals
-          MINIO_ACCESS_KEY: miniouser
-          MINIO_SECRET_KEY: miniopass123
+          # S3-compatible storage for CI (LocalStack)
+          MINIO_ENDPOINT: http://localhost:4566
+          MINIO_ACCESS_KEY: test
+          MINIO_SECRET_KEY: test
           MINIO_BUCKET: dtp-artifacts
         run: python scripts/test_all.py
