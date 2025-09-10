@@ -43,6 +43,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    networks:
+      default:
+        aliases:
+          - influx.local
 
   minio:
     image: minio/minio:latest
@@ -57,6 +61,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    networks:
+      default:
+        aliases:
+          - minio.local
 
   mqtt:
     image: eclipse-mosquitto:2
@@ -68,6 +76,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    networks:
+      default:
+        aliases:
+          - mqtt.local
 
   simulator:
     build: ./data-collection/simulator
@@ -117,16 +129,30 @@ services:
   twin_lift:
     build: ./twins/lift
     environment:
-      - CENTRAL_INFLUX_URL=http://influx:8086
-      - INFLUX_ORG=${INFLUX_ORG}
-      - INFLUX_BUCKET=${INFLUX_BUCKET}
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - MQTT_BROKER_HOST=mqtt.local
+      - MQTT_BROKER_PORT=1883
+      - MQTT_ALERT_TOPIC=dtp/lift/alerts
       - VIB_THRESHOLD=2.0
       - LIFT_ID=lift-001
     depends_on:
-      - influx
+      - mqtt
     ports:
       - "3001:3000" # Grafana UI for this twin
+    restart: unless-stopped
+
+  alert_gateway:
+    build: ./data-collection/alert_gateway
+    environment:
+      - MQTT_BROKER_HOST=mqtt.local
+      - MQTT_BROKER_PORT=1883
+      - MQTT_ALERT_TOPIC=dtp/lift/alerts
+      - CENTRAL_INFLUX_URL=http://influx.local:8086
+      - INFLUX_ORG=${INFLUX_ORG}
+      - INFLUX_BUCKET=${INFLUX_BUCKET}
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+    depends_on:
+      - mqtt
+      - influx
     restart: unless-stopped
 
   runner:

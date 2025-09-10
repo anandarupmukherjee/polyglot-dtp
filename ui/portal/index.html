@@ -20,6 +20,17 @@
     <h1>Polyglot DTP Portal</h1>
     <p>Quick links to local services and UIs.</p>
 
+    <div class="card" style="margin: 1rem 0;">
+      <h2>User Login</h2>
+      <form id="loginForm">
+        <label>Email <input id="email" type="email" value="demo@example.com" required /></label>
+        <label style="margin-left: 1rem;">Password <input id="password" type="password" value="demo12345" required /></label>
+        <button type="submit" style="margin-left: 1rem;">Login</button>
+        <span id="loginStatus" style="margin-left: 1rem; color: #2563eb;"></span>
+      </form>
+      <div id="twins" style="margin-top: 0.75rem;"></div>
+    </div>
+
     <div class="grid">
       <div class="card">
         <h2>Neo4j Browser</h2>
@@ -41,6 +52,55 @@
     <footer>
       <p>Portal: http://localhost:8080 · MQTT topic: <code>dtp/sensors/room1/temp</code></p>
     </footer>
+
+    <script>
+      const apiBase = 'http://localhost:8082';
+      const tokenKey = 'dtp_token';
+
+      async function login(email, password){
+        const body = new URLSearchParams();
+        body.append('username', email);
+        body.append('password', password);
+        body.append('grant_type', 'password');
+        const res = await fetch(apiBase + '/api/login', { method: 'POST', body });
+        if(!res.ok) throw new Error('Login failed');
+        const data = await res.json();
+        localStorage.setItem(tokenKey, data.access_token);
+        return data.access_token;
+      }
+
+      async function fetchTwins(){
+        const token = localStorage.getItem(tokenKey);
+        if(!token) return [];
+        const res = await fetch(apiBase + '/api/me/twins', { headers: { 'Authorization': 'Bearer ' + token }});
+        if(!res.ok) return [];
+        return res.json();
+      }
+
+      function renderTwins(list){
+        const el = document.getElementById('twins');
+        if(!list || list.length === 0){ el.innerHTML = '<em>No twins assigned to this user.</em>'; return; }
+        el.innerHTML = '<h3>Your Twins</h3>' + list.map(t => `<div class="card"><strong>${t.name}</strong><br/><a class="button" href="${t.ui_url}" target="_blank" rel="noopener">Open UI</a></div>`).join('');
+      }
+
+      document.getElementById('loginForm').addEventListener('submit', async (e) =>{
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const pw = document.getElementById('password').value;
+        const statusEl = document.getElementById('loginStatus');
+        statusEl.textContent = 'Signing in...';
+        try{
+          await login(email, pw);
+          statusEl.textContent = 'Signed in';
+          const twins = await fetchTwins();
+          renderTwins(twins);
+        }catch(err){
+          statusEl.textContent = 'Login failed';
+        }
+      });
+
+      // Auto-load twins if token exists
+      (async () => { const twins = await fetchTwins(); renderTwins(twins); })();
+    </script>
   </body>
   </html>
-
