@@ -1,0 +1,4 @@
+paho-mqtt==1.6.1
+psycopg[binary]==3.1.20
+influxdb-client==1.45.0
+python-dateutil==2.9.0.post0

@@ -58,6 +58,33 @@ services:
       timeout: 3s
       retries: 30
 
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL","/bin/sh -c 'nc -z localhost 1883 || exit 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  simulator:
+    build: ./simulator
+    env_file:
+      - ./.env
+    environment:
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
+      - PGHOST=db
+      - PGPORT=5432
+      - INFLUX_URL=http://influx:8086
+    depends_on:
+      - db
+      - influx
+      - mqtt
+    restart: unless-stopped
+
   runner:
     image: python:3.11
     working_dir: /app
