@@ -1,6 +1,7 @@
 import os, time, uuid
 from datetime import datetime, timezone, timedelta
 from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 url = "http://influx:8086"
 token = os.getenv("INFLUX_TOKEN")
@@ -10,7 +11,7 @@ bucket = os.getenv("INFLUX_BUCKET","signals")
 def run():
     sig = str(uuid.uuid4())
     with InfluxDBClient(url=url, token=token, org=org) as client:
-        write_api = client.write_api()
+        write_api = client.write_api(write_options=SYNCHRONOUS)
         now = datetime.now(timezone.utc)
         for i in range(5):
             p = Point("observation").tag("signal_id", sig).field("value", 42.0+i).time(now + timedelta(seconds=i), WritePrecision.NS)
