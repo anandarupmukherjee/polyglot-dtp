@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DTP Portal</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; }
+      h1 { margin-bottom: 0.25rem; }
+      .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 1rem; }
+      .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; }
+      .card h2 { margin: 0 0 0.5rem 0; font-size: 1.1rem; }
+      .card p { margin: 0.25rem 0; color: #334155; }
+      a.button { display: inline-block; margin-top: 0.5rem; background: #2563eb; color: #fff; padding: 0.5rem 0.75rem; border-radius: 6px; text-decoration: none; }
+      footer { margin-top: 2rem; color: #64748b; font-size: 0.9rem; }
+      code { background: #f1f5f9; padding: 0 0.25rem; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Polyglot DTP Portal</h1>
+    <p>Quick links to local services and UIs.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Neo4j Browser</h2>
+        <p>Graph UI for Neo4j.</p>
+        <a class="button" href="http://localhost:7474" target="_blank" rel="noopener">Open Neo4j</a>
+      </div>
+      <div class="card">
+        <h2>InfluxDB</h2>
+        <p>Time-series UI and Data Explorer.</p>
+        <a class="button" href="http://localhost:8086" target="_blank" rel="noopener">Open InfluxDB</a>
+      </div>
+      <div class="card">
+        <h2>MinIO Console</h2>
+        <p>S3-compatible object storage UI.</p>
+        <a class="button" href="http://localhost:9101" target="_blank" rel="noopener">Open MinIO</a>
+      </div>
+    </div>
+
+    <footer>
+      <p>Portal: http://localhost:8080 · MQTT topic: <code>dtp/sensors/room1/temp</code></p>
+    </footer>
+  </body>
+  </html>
+

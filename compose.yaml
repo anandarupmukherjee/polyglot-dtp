@@ -8,7 +8,7 @@ services:
     ports: ["5432:5432"]
     volumes:
       - dbdata:/var/lib/postgresql/data
-      - ./sql:/docker-entrypoint-initdb.d
+      - ./data-storage/sql:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL","pg_isready -U ${PGUSER} -d ${PGDATABASE}"]
       interval: 5s
@@ -62,7 +62,7 @@ services:
     image: eclipse-mosquitto:2
     ports: ["1883:1883"]
     volumes:
-      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./infrastructure/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
     healthcheck:
       test: ["CMD-SHELL","/bin/sh -c 'nc -z localhost 1883 || exit 1'"]
       interval: 5s
@@ -70,7 +70,7 @@ services:
       retries: 30
 
   simulator:
-    build: ./simulator
+    build: ./data-collection/simulator
     env_file:
       - ./.env
     environment:
@@ -83,6 +83,13 @@ services:
       - db
       - influx
       - mqtt
+    restart: unless-stopped
+
+  portal:
+    image: nginx:alpine
+    volumes:
+      - ./ui/portal:/usr/share/nginx/html:ro
+    ports: ["8080:80"]
     restart: unless-stopped
 
   runner:
