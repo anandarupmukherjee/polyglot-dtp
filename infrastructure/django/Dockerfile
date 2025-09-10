@@ -13,5 +13,7 @@ COPY portalbackend /app/portalbackend
 COPY twins /app/twins
 
 EXPOSE 8000
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-CMD ["bash","-lc","python manage.py migrate && python manage.py loaddata initial_data.json || true; python manage.py runserver 0.0.0.0:8000"]
+CMD ["/bin/bash","/app/entrypoint.sh"]

@@ -12,11 +12,10 @@ class TwinUI(models.Model):
         db_table = 'twin_ui'
 
 
-class UserTwin(models.Model):
+class AccessGrant(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     twin = models.ForeignKey(TwinUI, on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'user_twin'
+        db_table = 'user_twin_map'
         unique_together = ('user', 'twin')
-
