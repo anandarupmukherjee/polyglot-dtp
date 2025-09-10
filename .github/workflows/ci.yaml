@@ -27,10 +27,11 @@ jobs:
           DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: devtoken1234567890
         ports: ["8086:8086"]
       minio:
-        image: localstack/localstack:latest
+        image: minio/minio:latest
         env:
-          SERVICES: s3
-        ports: ["4566:4566"]
+          MINIO_ROOT_USER: miniouser
+          MINIO_ROOT_PASSWORD: miniopass123
+        ports: ["9000:9000"]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,14 +41,14 @@ jobs:
           until pg_isready -h localhost -p 5432 -U dtp; do sleep 2; done
           PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
 
-      - name: Wait for Neo4j/Influx/LocalStack
+      - name: Wait for Neo4j/Influx/MinIO
         run: |
           echo "Waiting for Neo4j at http://localhost:7474 ..."
           until curl -sSf http://localhost:7474 >/dev/null; do sleep 2; done
           echo "Waiting for Influx at http://localhost:8086/health ..."
           until curl -sSf http://localhost:8086/health >/dev/null; do sleep 2; done
-          echo "Waiting for LocalStack at http://localhost:4566/_localstack/health ..."
-          until curl -sSf http://localhost:4566/_localstack/health >/dev/null; do sleep 2; done
+          echo "Waiting for MinIO at http://localhost:9000/minio/health/live ..."
+          until curl -sSf http://localhost:9000/minio/health/live >/dev/null; do sleep 2; done
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -65,9 +66,9 @@ jobs:
           INFLUX_TOKEN: devtoken1234567890
           INFLUX_ORG: dtp-org
           INFLUX_BUCKET: signals
-          # S3-compatible storage for CI (LocalStack)
-          MINIO_ENDPOINT: http://localhost:4566
-          MINIO_ACCESS_KEY: test
-          MINIO_SECRET_KEY: test
+          # S3-compatible storage for CI (MinIO)
+          MINIO_ENDPOINT: http://localhost:9000
+          MINIO_ACCESS_KEY: miniouser
+          MINIO_SECRET_KEY: miniopass123
           MINIO_BUCKET: dtp-artifacts
         run: python scripts/test_all.py
