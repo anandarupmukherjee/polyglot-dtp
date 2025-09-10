@@ -8,13 +8,13 @@ jobs:
 
       - name: Start services (Docker)
         run: |
-          docker run -d --name db \
+          sudo docker run -d --name db \
             -e POSTGRES_USER=dtp -e POSTGRES_PASSWORD=dtp -e POSTGRES_DB=dtp \
             -p 5432:5432 timescale/timescaledb:pg16-latest
-          docker run -d --name neo4j \
+          sudo docker run -d --name neo4j \
             -e NEO4J_AUTH=neo4j/neo \
             -p 7687:7687 -p 7474:7474 neo4j:5
-          docker run -d --name influx \
+          sudo docker run -d --name influx \
             -e DOCKER_INFLUXDB_INIT_MODE=setup \
             -e DOCKER_INFLUXDB_INIT_USERNAME=dtp \
             -e DOCKER_INFLUXDB_INIT_PASSWORD=dtp \
@@ -22,7 +22,7 @@ jobs:
             -e DOCKER_INFLUXDB_INIT_BUCKET=signals \
             -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 \
             -p 8086:8086 influxdb:2
-          docker run -d --name minio \
+          sudo docker run -d --name minio \
             -e MINIO_ROOT_USER=miniouser -e MINIO_ROOT_PASSWORD=miniopass123 \
             -p 9000:9000 minio/minio:latest server /data
 
