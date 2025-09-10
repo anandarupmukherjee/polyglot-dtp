@@ -40,9 +40,6 @@ jobs:
         env:
           SERVICES: s3
         ports: ["4566:4566"]
-        options: >-
-          --health-cmd="curl -f http://localhost:4566/_localstack/health || exit 1"
-          --health-interval=5s --health-timeout=3s --health-retries=30
     steps:
       - uses: actions/checkout@v4
 
