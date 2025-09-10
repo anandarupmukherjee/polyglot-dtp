@@ -35,7 +35,6 @@ jobs:
           until pg_isready -h localhost -p 5432 -U dtp; do sleep 2; done
           PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
 
-      - name: Wait for Neo4j/Influx/MinIO
       - name: Wait for Neo4j/Influx
         run: |
           echo "Waiting for Neo4j at http://localhost:7474 ..."
