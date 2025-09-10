@@ -1,0 +1,62 @@
+services:
+  lift_influx:
+    image: influxdb:2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: lift
+      DOCKER_INFLUXDB_INIT_PASSWORD: liftpass123
+      DOCKER_INFLUXDB_INIT_ORG: lift-org
+      DOCKER_INFLUXDB_INIT_BUCKET: lift
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: admin-token
+    volumes:
+      - lift_influx_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD","influx","ping","-h","http://localhost:8086"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      default:
+        aliases:
+          - lift_twin.influx.local
+
+  lift_ui:
+    build: ./ui
+    depends_on:
+      - lift_influx
+    environment:
+      - LOCAL_INFLUX_URL=http://lift_influx:8086
+      - LOCAL_ORG=lift-org
+      - LOCAL_BUCKET=lift
+      - LOCAL_TOKEN=admin-token
+    ports: ["3001:3000"]
+    networks:
+      default:
+        aliases:
+          - lift_twin.ui.local
+
+  lift_generator:
+    image: python:3.11-slim
+    depends_on:
+      - lift_influx
+    working_dir: /app
+    environment:
+      - LOCAL_INFLUX_URL=http://lift_influx:8086
+      - LOCAL_ORG=lift-org
+      - LOCAL_BUCKET=lift
+      - LOCAL_TOKEN_FILE=/tmp/influx.token
+      - MQTT_BROKER_HOST=${MQTT_BROKER_HOST:-mqtt.local}
+      - MQTT_BROKER_PORT=${MQTT_BROKER_PORT:-1883}
+      - MQTT_ALERT_TOPIC=${MQTT_ALERT_TOPIC:-dtp/lift/alerts}
+      - VIB_THRESHOLD=${VIB_THRESHOLD:-2.0}
+      - LIFT_ID=${LIFT_ID:-lift-001}
+    command: bash -lc "pip install --no-cache-dir influxdb-client==1.45.0 paho-mqtt==1.6.1 && python /app/generator.py"
+    volumes:
+      - ../lift/generator.py:/app/generator.py:ro
+    networks:
+      default:
+        aliases:
+          - lift_twin.generator.local
+
+volumes:
+  lift_influx_data:

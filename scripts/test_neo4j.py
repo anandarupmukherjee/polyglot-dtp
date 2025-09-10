@@ -11,8 +11,8 @@ def run():
     with driver.session() as s:
         s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (t:Twin) REQUIRE t.twin_id IS UNIQUE")
         s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (a:Asset) REQUIRE a.asset_id IS UNIQUE")
-        s.run("MERGE (t:Twin {twin_id:$tid}) SET t.kind='demo'")
-        s.run("MERGE (a:Asset {asset_id:$aid}) SET a.type='room'")
+        s.run("MERGE (t:Twin {twin_id:$tid}) SET t.kind='demo'", tid=twin_id)
+        s.run("MERGE (a:Asset {asset_id:$aid}) SET a.type='room'", aid=asset_id)
         s.run("""
             MATCH (t:Twin {twin_id:$tid}), (a:Asset {asset_id:$aid})
             MERGE (t)-[:MIRRORS]->(a)

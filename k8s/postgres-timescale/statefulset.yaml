@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pg
+  namespace: dtp
+spec:
+  serviceName: pg
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg
+  template:
+    metadata:
+      labels:
+        app: pg
+    spec:
+      containers:
+      - name: pg
+        image: timescale/timescaledb:latest-pg16
+        envFrom:
+        - secretRef:
+            name: pg-secret
+        ports:
+        - containerPort: 5432
+          name: pg
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: init
+          mountPath: /docker-entrypoint-initdb.d
+        readinessProbe:
+          exec:
+            command: ["pg_isready","-U","dtp","-d","dtp"]
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: init
+        configMap:
+          name: pg-init-sql
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi
+

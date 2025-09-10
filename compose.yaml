@@ -1,7 +1,6 @@
-version: "3.9"
 services:
   db:
-    image: timescale/timescaledb:pg16-latest
+    image: timescale/timescaledb:latest-pg16
     environment:
       POSTGRES_USER: ${PGUSER}
       POSTGRES_PASSWORD: ${PGPASSWORD}
@@ -9,10 +8,12 @@ services:
     ports: ["5432:5432"]
     volumes:
       - dbdata:/var/lib/postgresql/data
-      - ./sql:/docker-entrypoint-initdb.d
+      - ./data-storage/sql:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL","pg_isready -U ${PGUSER} -d ${PGDATABASE}"]
-      interval: 5s; timeout: 3s; retries: 20
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   neo4j:
     image: neo4j:5
@@ -22,7 +23,9 @@ services:
     volumes: [ "neo4jdata:/data" ]
     healthcheck:
       test: ["CMD","wget","--spider","-q","http://localhost:7474"]
-      interval: 5s; timeout: 3s; retries: 30
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
   influx:
     image: influxdb:2
@@ -37,7 +40,13 @@ services:
     volumes: [ "influxdata:/var/lib/influxdb2" ]
     healthcheck:
       test: ["CMD","influx","ping","-h","http://localhost:8086"]
-      interval: 5s; timeout: 3s; retries: 30
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      default:
+        aliases:
+          - influx.local
 
   minio:
     image: minio/minio:latest
@@ -45,11 +54,115 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-    ports: ["9000:9000","9001:9001"]
+    ports: ["9100:9000","9101:9001"]
     volumes: [ "miniodata:/data" ]
     healthcheck:
       test: ["CMD","curl","-f","http://localhost:9000/minio/health/live"]
-      interval: 5s; timeout: 3s; retries: 30
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      default:
+        aliases:
+          - minio.local
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes:
+      - ./infrastructure/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL","/bin/sh -c 'nc -z localhost 1883 || exit 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      default:
+        aliases:
+          - mqtt.local
+
+  simulator:
+    build: ./data-collection/simulator
+    env_file:
+      - ./.env
+    environment:
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
+      - PGHOST=db
+      - PGPORT=5432
+      - INFLUX_URL=http://influx:8086
+    depends_on:
+      - db
+      - influx
+      - mqtt
+    restart: unless-stopped
+
+  portal:
+    image: nginx:alpine
+    volumes:
+      - ./ui/portal:/usr/share/nginx/html:ro
+    ports: ["8080:80"]
+    restart: unless-stopped
+
+  django:
+    build: ./infrastructure/django
+    environment:
+      - DJANGO_DEBUG=1
+      - SECRET_KEY=devsecret
+      - ALLOWED_HOSTS=*
+      - CORS_ORIGINS=http://localhost:8083
+      - PGHOST=db
+      - PGPORT=5432
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGDATABASE=${PGDATABASE}
+    depends_on:
+      - db
+    ports: ["8084:8000"]
+    restart: unless-stopped
+
+  reactui:
+    build: ./ui/react
+    ports: ["8083:80"]
+    restart: unless-stopped
+
+  twin_lift:
+    build: ./twins/lift
+    environment:
+      - MQTT_BROKER_HOST=mqtt.local
+      - MQTT_BROKER_PORT=1883
+      - MQTT_ALERT_TOPIC=dtp/lift/alerts
+      - VIB_THRESHOLD=2.0
+      - LIFT_ID=lift-001
+    depends_on:
+      - mqtt
+    ports:
+      - "3001:3000" # Grafana UI for this twin
+    restart: unless-stopped
+
+  alert_gateway:
+    build: ./data-collection/alert_gateway
+    environment:
+      - MQTT_BROKER_HOST=mqtt.local
+      - MQTT_BROKER_PORT=1883
+      - MQTT_ALERT_TOPIC=dtp/lift/alerts
+      - CENTRAL_INFLUX_URL=http://influx.local:8086
+      - INFLUX_ORG=${INFLUX_ORG}
+      - INFLUX_BUCKET=${INFLUX_BUCKET}
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+    depends_on:
+      - mqtt
+      - influx
+    restart: unless-stopped
+
+  runner:
+    image: python:3.11
+    working_dir: /app
+    volumes:
+      - ./scripts:/app
+    env_file:
+      - ./.env
+    # no command/entrypoint; use `docker compose run` to execute tests
 
 volumes:
   dbdata:
