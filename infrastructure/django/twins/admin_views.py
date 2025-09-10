@@ -1,0 +1,68 @@
+from django.contrib.auth.models import User
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
+from .models import TwinUI, AccessGrant
+from .serializers import TwinUISerializer
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAdminUser])
+def users(request):
+    if request.method == "GET":
+        data = [
+            {"id": u.id, "username": u.username, "email": u.email, "is_staff": u.is_staff}
+            for u in User.objects.all().order_by("username")
+        ]
+        return Response(data)
+    # POST create user {username,email,password}
+    payload = request.data or {}
+    username = payload.get("username")
+    email = payload.get("email", username)
+    password = payload.get("password")
+    if not username or not password:
+        return Response({"detail": "username and password required"}, status=status.HTTP_400_BAD_REQUEST)
+    if User.objects.filter(username=username).exists():
+        return Response({"detail": "user exists"}, status=status.HTTP_409_CONFLICT)
+    u = User.objects.create_user(username=username, email=email, password=password)
+    return Response({"id": u.id, "username": u.username, "email": u.email}, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAdminUser])
+def twins(request):
+    if request.method == "GET":
+        items = TwinUI.objects.all().order_by("name")
+        return Response(TwinUISerializer(items, many=True).data)
+    # POST create twin {name, ui_url}
+    name = request.data.get("name")
+    ui_url = request.data.get("ui_url")
+    if not name or not ui_url:
+        return Response({"detail": "name and ui_url required"}, status=status.HTTP_400_BAD_REQUEST)
+    tw = TwinUI.objects.create(name=name, ui_url=ui_url)
+    return Response(TwinUISerializer(tw).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAdminUser])
+def grants(request):
+    if request.method == "GET":
+        data = [
+            {"user": g.user.username, "twin_id": str(g.twin.twin_id), "twin": g.twin.name}
+            for g in AccessGrant.objects.select_related("user", "twin").all()
+        ]
+        return Response(data)
+    # POST grant {username, twin_id}
+    username = request.data.get("username")
+    twin_id = request.data.get("twin_id")
+    if not username or not twin_id:
+        return Response({"detail": "username and twin_id required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        u = User.objects.get(username=username)
+        t = TwinUI.objects.get(pk=twin_id)
+    except (User.DoesNotExist, TwinUI.DoesNotExist):
+        return Response({"detail": "user or twin not found"}, status=status.HTTP_404_NOT_FOUND)
+    AccessGrant.objects.get_or_create(user=u, twin=t)
+    return Response({"ok": True}, status=status.HTTP_201_CREATED)
+

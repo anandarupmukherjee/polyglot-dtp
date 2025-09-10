@@ -8,4 +8,11 @@ python manage.py shell -c 'from django.contrib.auth.models import User; from twi
     (TwinUI.objects.create(name="Room 1", ui_url="http://localhost:7474"), TwinUI.objects.create(name="Room 2", ui_url="http://localhost:7474")) if TwinUI.objects.count()==0 else None; \
     [AccessGrant.objects.get_or_create(user=u, twin=t) for t in TwinUI.objects.all()]'
 
+# Create Django superuser (admin) if not exists
+python manage.py shell -c 'from django.contrib.auth.models import User; import os; \
+    username=os.getenv("DJANGO_ADMIN_USER","admin@example.com"); \
+    password=os.getenv("DJANGO_ADMIN_PASSWORD","admin12345"); \
+    u = User.objects.filter(username=username).first(); \
+    (User.objects.create_superuser(username=username, email=username, password=password)) if not u else None'
+
 exec python manage.py runserver 0.0.0.0:8000
