@@ -4,21 +4,78 @@ on:
   workflow_dispatch:
 
 jobs:
-  integ:
+  pg:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Start DB containers (docker)
+      - name: Start Timescale (docker)
         run: |
-          sudo docker network create dtp || true
-          sudo docker run -d --name db --network dtp \
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          CNAME=db-${GITHUB_RUN_ID}
+          sudo docker network create "$NET" || true
+          sudo docker run -d --name "$CNAME" --network "$NET" --network-alias db \
             -e POSTGRES_USER=dtp -e POSTGRES_PASSWORD=dtp -e POSTGRES_DB=dtp \
             -p 5432:5432 timescale/timescaledb:pg16-latest
-          sudo docker run -d --name neo4j --network dtp \
+      - name: Seed Timescale schema
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          until pg_isready -h localhost -p 5432 -U dtp; do sleep 2; done
+          PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
+      - name: Run PG test inside container
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" \
+            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -v "$GITHUB_WORKSPACE/sql:/app/sql:ro" \
+            -w /app python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_pg_timescale.py"
+      - name: Cleanup
+        if: always()
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker ps -a || true
+          sudo docker rm -f db-${GITHUB_RUN_ID} || true
+          sudo docker network rm "$NET" || true
+
+  neo4j:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Neo4j (docker)
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          CNAME=neo4j-${GITHUB_RUN_ID}
+          sudo docker network create "$NET" || true
+          sudo docker run -d --name "$CNAME" --network "$NET" --network-alias neo4j \
             -e NEO4J_AUTH=neo4j/neo \
-            -p 7687:7687 -p 7474:7474 neo4j:5
-          sudo docker run -d --name influx --network dtp \
+            -p 7474:7474 -p 7687:7687 neo4j:5
+      - name: Wait for Neo4j HTTP
+        run: |
+          until curl -sSf http://localhost:7474 >/dev/null; do sleep 2; done
+      - name: Run Neo4j test inside container
+        env:
+          NEO4J_PASSWORD: neo
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" \
+            -e NEO4J_PASSWORD \
+            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -w /app \
+            python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_neo4j.py"
+      - name: Cleanup
+        if: always()
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker rm -f neo4j-${GITHUB_RUN_ID} || true
+          sudo docker network rm "$NET" || true
+
+  influx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Influx (docker)
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          CNAME=influx-${GITHUB_RUN_ID}
+          sudo docker network create "$NET" || true
+          sudo docker run -d --name "$CNAME" --network "$NET" --network-alias influx \
             -e DOCKER_INFLUXDB_INIT_MODE=setup \
             -e DOCKER_INFLUXDB_INIT_USERNAME=dtp \
             -e DOCKER_INFLUXDB_INIT_PASSWORD=dtp \
@@ -26,33 +83,23 @@ jobs:
             -e DOCKER_INFLUXDB_INIT_BUCKET=signals \
             -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 \
             -p 8086:8086 influxdb:2
-
-      - name: Seed Timescale schema
+      - name: Wait for Influx health
         run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-          until pg_isready -h localhost -p 5432 -U dtp; do sleep 2; done
-          PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
-
-      - name: Wait for Neo4j/Influx
-        run: |
-          echo "Waiting for Neo4j at http://localhost:7474 ..."
-          until curl -sSf http://localhost:7474 >/dev/null; do sleep 2; done
-          echo "Waiting for Influx at http://localhost:8086/health ..."
           until curl -sSf http://localhost:8086/health >/dev/null; do sleep 2; done
-
-      - name: Run integration tests inside container (no S3)
+      - name: Run Influx test inside container
         env:
-          PGUSER: dtp
-          PGPASSWORD: dtp
-          PGDATABASE: dtp
-          NEO4J_PASSWORD: neo
           INFLUX_TOKEN: devtoken1234567890
           INFLUX_ORG: dtp-org
           INFLUX_BUCKET: signals
-          DTP_SKIP_MINIO: "1"
         run: |
-          sudo docker run --rm --network dtp \
-            -e PGUSER -e PGPASSWORD -e PGDATABASE -e NEO4J_PASSWORD \
-            -e INFLUX_TOKEN -e INFLUX_ORG -e INFLUX_BUCKET -e DTP_SKIP_MINIO \
-            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -v "$GITHUB_WORKSPACE/sql:/app/sql:ro" \
-            -w /app python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_all.py"
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" \
+            -e INFLUX_TOKEN -e INFLUX_ORG -e INFLUX_BUCKET \
+            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -w /app \
+            python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_influx.py"
+      - name: Cleanup
+        if: always()
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker rm -f influx-${GITHUB_RUN_ID} || true
+          sudo docker network rm "$NET" || true
