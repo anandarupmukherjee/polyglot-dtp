@@ -3,25 +3,31 @@ on: [push, pull_request]
 jobs:
   integ:
     runs-on: ubuntu-latest
+    services:
+      db:
+        image: timescale/timescaledb:pg16-latest
+        env:
+          POSTGRES_USER: dtp
+          POSTGRES_PASSWORD: dtp
+          POSTGRES_DB: dtp
+        ports: ["5432:5432"]
+      neo4j:
+        image: neo4j:5
+        env:
+          NEO4J_AUTH: neo4j/neo
+        ports: ["7687:7687","7474:7474"]
+      influx:
+        image: influxdb:2
+        env:
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: dtp
+          DOCKER_INFLUXDB_INIT_PASSWORD: dtp
+          DOCKER_INFLUXDB_INIT_ORG: dtp-org
+          DOCKER_INFLUXDB_INIT_BUCKET: signals
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: devtoken1234567890
+        ports: ["8086:8086"]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Start services (Docker)
-        run: |
-          sudo docker run -d --name db \
-            -e POSTGRES_USER=dtp -e POSTGRES_PASSWORD=dtp -e POSTGRES_DB=dtp \
-            -p 5432:5432 timescale/timescaledb:pg16-latest
-          sudo docker run -d --name neo4j \
-            -e NEO4J_AUTH=neo4j/neo \
-            -p 7687:7687 -p 7474:7474 neo4j:5
-          sudo docker run -d --name influx \
-            -e DOCKER_INFLUXDB_INIT_MODE=setup \
-            -e DOCKER_INFLUXDB_INIT_USERNAME=dtp \
-            -e DOCKER_INFLUXDB_INIT_PASSWORD=dtp \
-            -e DOCKER_INFLUXDB_INIT_ORG=dtp-org \
-            -e DOCKER_INFLUXDB_INIT_BUCKET=signals \
-            -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 \
-            -p 8086:8086 influxdb:2
 
       - name: Seed Timescale schema
         run: |
