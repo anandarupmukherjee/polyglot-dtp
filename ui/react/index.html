@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DTP Portal (React)</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; }
+      .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin: .5rem 0; }
+      .button { display: inline-block; margin-top: 0.5rem; background: #2563eb; color: #fff; padding: 0.5rem 0.75rem; border-radius: 6px; text-decoration: none; }
+      input { padding: .4rem; margin-right: .5rem; }
+    </style>
+  </head>
+  <body>
+    <h1>DTP Portal (React)</h1>
+    <div id="root"></div>
+    <script>
+      const e = React.createElement;
+      const apiBase = 'http://localhost:8082';
+
+      function App(){
+        const [email, setEmail] = React.useState('demo@example.com');
+        const [pw, setPw] = React.useState('demo12345');
+        const [status, setStatus] = React.useState('');
+        const [twins, setTwins] = React.useState([]);
+        const tokenKey = 'dtp_token';
+
+        const login = async () => {
+          setStatus('Signing in...');
+          const res = await fetch(apiBase + '/api/token/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: email, password: pw })
+          });
+          if(!res.ok){ setStatus('Login failed'); return; }
+          const data = await res.json();
+          localStorage.setItem(tokenKey, data.access);
+          setStatus('Signed in');
+          await loadTwins();
+        };
+
+        const loadTwins = async () => {
+          const token = localStorage.getItem(tokenKey);
+          if(!token){ setTwins([]); return; }
+          const res = await fetch(apiBase + '/api/me/twins/', { headers: { Authorization: 'Bearer ' + token } });
+          if(!res.ok){ setTwins([]); return; }
+          const list = await res.json();
+          setTwins(list);
+        };
+
+        React.useEffect(() => { loadTwins(); }, []);
+
+        return e('div', null,
+          e('div', { className: 'card' },
+            e('h2', null, 'Login'),
+            e('input', { value: email, onChange: ev => setEmail(ev.target.value), placeholder: 'email' }),
+            e('input', { type: 'password', value: pw, onChange: ev => setPw(ev.target.value), placeholder: 'password' }),
+            e('button', { onClick: login, style: { marginLeft: '.5rem' } }, 'Login'),
+            e('span', { style: { marginLeft: '.5rem', color: '#2563eb' } }, status)
+          ),
+          e('div', { className: 'card' },
+            e('h2', null, 'Your Twins'),
+            twins.length === 0 ? e('em', null, 'No twins') : twins.map(t => e('div', { key: t.twin_id, className: 'card' },
+              e('strong', null, t.name),
+              e('br'),
+              e('a', { className: 'button', href: t.ui_url, target: '_blank', rel: 'noopener' }, 'Open UI')
+            ))
+          ),
+          e('div', { className: 'card' },
+            e('h2', null, 'Service UIs'),
+            e('a', { className: 'button', href: 'http://localhost:7474', target: '_blank' }, 'Neo4j'), ' ',
+            e('a', { className: 'button', href: 'http://localhost:8086', target: '_blank' }, 'InfluxDB'), ' ',
+            e('a', { className: 'button', href: 'http://localhost:9101', target: '_blank' }, 'MinIO')
+          )
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+    </script>
+  </body>
+  </html>
+

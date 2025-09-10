@@ -92,6 +92,30 @@ services:
     ports: ["8080:80"]
     restart: unless-stopped
 
+  django:
+    build: ./infrastructure/django
+    environment:
+      - DJANGO_DEBUG=1
+      - SECRET_KEY=devsecret
+      - ALLOWED_HOSTS=*
+      - CORS_ORIGINS=http://localhost:8083
+      - PGHOST=db
+      - PGPORT=5432
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGDATABASE=${PGDATABASE}
+    depends_on:
+      - db
+    ports: ["8082:8000"]
+    restart: unless-stopped
+
+  reactui:
+    image: nginx:alpine
+    volumes:
+      - ./ui/react:/usr/share/nginx/html:ro
+    ports: ["8083:80"]
+    restart: unless-stopped
+
   runner:
     image: python:3.11
     working_dir: /app
