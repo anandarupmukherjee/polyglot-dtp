@@ -15,4 +15,9 @@ python manage.py shell -c 'from django.contrib.auth.models import User; import o
     u = User.objects.filter(username=username).first(); \
     (User.objects.create_superuser(username=username, email=username, password=password)) if not u else None'
 
+# Seed a Lift Maintenance twin entry pointing to the local Grafana in twin container (host port 3001)
+python manage.py shell -c 'from django.contrib.auth.models import User; from twins.models import TwinUI, AccessGrant; \
+    t, _ = TwinUI.objects.get_or_create(name="Lift Maintenance", defaults={"ui_url": "http://localhost:3001"}); \
+    for u in User.objects.all(): AccessGrant.objects.get_or_create(user=u, twin=t)'
+
 exec python manage.py runserver 0.0.0.0:8000
