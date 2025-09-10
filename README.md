@@ -51,3 +51,20 @@ The MinIO test auto-detects which backend to use via `MINIO_ENDPOINT`.
   - Neo4j: `kubectl port-forward -n dtp svc/neo4j 7474:7474 7687:7687`
   - InfluxDB: `kubectl port-forward -n dtp svc/influx 8086:8086`
   - MinIO: `kubectl port-forward -n dtp svc/minio 9000:9000 9001:9001`
+
+## MQTT Simulator (optional)
+- Services: an embedded Mosquitto broker (`mqtt`) and a `simulator` container are included in `docker compose`.
+- Start: `docker compose up -d` (or start individually: `docker compose up -d mqtt simulator`)
+- What it does:
+  - Publishes JSON sensor messages to MQTT topic `dtp/sensors/room1/temp` every 5s.
+  - Subscribes to `dtp/sensors/#` and, for each message, writes:
+    - Time-series point to InfluxDB bucket `signals` (measurement `observation`).
+    - Relational rows to TimescaleDB tables `signal` and `observation`.
+- Configure via env (override in `.env` or compose):
+  - `PUBLISH_INTERVAL_SEC` (default `5`)
+  - `MQTT_TOPIC` (default `dtp/sensors/room1/temp`)
+  - `SIM_SIGNAL_NAME` (default `temp_room_1`), `SIM_SIGNAL_UNIT` (default `C`)
+- Observe logs: `docker compose logs -f simulator`
+- Verify data:
+  - TimescaleDB: `docker compose exec db psql -U dtp -d dtp -c "select count(*) from observation;"`
+  - InfluxDB UI: http://localhost:8086 → Data Explorer → query measurement `observation` in bucket `signals`.
