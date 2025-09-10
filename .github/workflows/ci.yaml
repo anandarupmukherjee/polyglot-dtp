@@ -11,17 +11,11 @@ jobs:
           POSTGRES_PASSWORD: dtp
           POSTGRES_DB: dtp
         ports: ["5432:5432"]
-        options: >-
-          --health-cmd="pg_isready -U dtp -d dtp"
-          --health-interval=5s --health-timeout=3s --health-retries=20
       neo4j:
         image: neo4j:5
         env:
           NEO4J_AUTH: neo4j/neo
         ports: ["7687:7687","7474:7474"]
-        options: >-
-          --health-cmd="wget --spider -q http://localhost:7474 || exit 1"
-          --health-interval=5s --health-timeout=3s --health-retries=30
       influx:
         image: influxdb:2
         env:
@@ -32,9 +26,6 @@ jobs:
           DOCKER_INFLUXDB_INIT_BUCKET: signals
           DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: devtoken1234567890
         ports: ["8086:8086"]
-        options: >-
-          --health-cmd="influx ping -h http://localhost:8086"
-          --health-interval=5s --health-timeout=3s --health-retries=30
       minio:
         image: localstack/localstack:latest
         env:
@@ -48,6 +39,15 @@ jobs:
           sudo apt-get update && sudo apt-get install -y postgresql-client
           until pg_isready -h localhost -p 5432 -U dtp; do sleep 2; done
           PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
+
+      - name: Wait for Neo4j/Influx/LocalStack
+        run: |
+          echo "Waiting for Neo4j at http://localhost:7474 ..."
+          until curl -sSf http://localhost:7474 >/dev/null; do sleep 2; done
+          echo "Waiting for Influx at http://localhost:8086/health ..."
+          until curl -sSf http://localhost:8086/health >/dev/null; do sleep 2; done
+          echo "Waiting for LocalStack at http://localhost:4566/_localstack/health ..."
+          until curl -sSf http://localhost:4566/_localstack/health >/dev/null; do sleep 2; done
 
       - name: Set up Python
         uses: actions/setup-python@v5
