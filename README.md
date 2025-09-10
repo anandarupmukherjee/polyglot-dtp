@@ -13,6 +13,7 @@ Spin up Postgres/Timescale, Neo4j, InfluxDB 2, and MinIO. Run one script that wr
    - MinIO S3: http://localhost:9100 (console http://localhost:9101)
    - Neo4j Browser: http://localhost:7474 (user `neo4j`, pass from `.env`)
    - InfluxDB: http://localhost:8086 (org/bucket/token from `.env`)
+   - Portal (links to all UIs): http://localhost:8080
 
 ### Option B: Linux/Mac (Makefile helper)
 1. `cp .env.example .env`
@@ -31,9 +32,15 @@ Spin up Postgres/Timescale, Neo4j, InfluxDB 2, and MinIO. Run one script that wr
 The MinIO test auto-detects which backend to use via `MINIO_ENDPOINT`.
 
 ## Notes
-- Timescale hypertable is created by `sql/timescale.sql`.
+- Timescale hypertable is created by `data-storage/sql/timescale.sql`.
 - Influx is pre-seeded with org/bucket/token from `.env`.
 - Tests run purely with Python clients; no external frameworks required.
+
+## Repository Layout
+- `ui/` — portal and future web UIs
+- `data-storage/` — database init/config (e.g., Timescale SQL)
+- `infrastructure/` — infra components (e.g., MQTT broker config)
+- `data-collection/` — simulators and ingestors (e.g., MQTT simulator)
 
 ## Kubernetes (optional)
 - Prereq: enable Docker Desktop Kubernetes or use a `kind` cluster.
