@@ -34,3 +34,20 @@ The MinIO test auto-detects which backend to use via `MINIO_ENDPOINT`.
 - Timescale hypertable is created by `sql/timescale.sql`.
 - Influx is pre-seeded with org/bucket/token from `.env`.
 - Tests run purely with Python clients; no external frameworks required.
+
+## Kubernetes (optional)
+- Prereq: enable Docker Desktop Kubernetes or use a `kind` cluster.
+- Apply namespace and services:
+  - `kubectl apply -f k8s/namespace.yaml`
+  - `kubectl apply -f k8s/postgres-timescale -n dtp`
+  - `kubectl apply -f k8s/neo4j -n dtp`
+  - `kubectl apply -f k8s/influx -n dtp`
+  - `kubectl apply -f k8s/minio -n dtp`
+- Wait for pods: `kubectl get pods -n dtp`
+- Run tests inside the cluster:
+  - `kubectl apply -f k8s/test-job -n dtp`
+  - `kubectl logs -n dtp job/dtp-test`
+- Port-forward UIs (optional):
+  - Neo4j: `kubectl port-forward -n dtp svc/neo4j 7474:7474 7687:7687`
+  - InfluxDB: `kubectl port-forward -n dtp svc/influx 8086:8086`
+  - MinIO: `kubectl port-forward -n dtp svc/minio 9000:9000 9001:9001`
