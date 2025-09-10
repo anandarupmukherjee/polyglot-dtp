@@ -1,0 +1,76 @@
+name: polyglot-ci
+on: [push, pull_request]
+jobs:
+  integ:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: timescale/timescaledb:pg16-latest
+        env:
+          POSTGRES_USER: dtp
+          POSTGRES_PASSWORD: dtp
+          POSTGRES_DB: dtp
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U dtp -d dtp"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+      neo4j:
+        image: neo4j:5
+        env:
+          NEO4J_AUTH: neo4j/neo
+        ports: ["7687:7687","7474:7474"]
+        options: >-
+          --health-cmd="wget --spider -q http://localhost:7474 || exit 1"
+          --health-interval=5s --health-timeout=3s --health-retries=30
+      influx:
+        image: influxdb:2
+        env:
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: dtp
+          DOCKER_INFLUXDB_INIT_PASSWORD: dtp
+          DOCKER_INFLUXDB_INIT_ORG: dtp-org
+          DOCKER_INFLUXDB_INIT_BUCKET: signals
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: devtoken1234567890
+        ports: ["8086:8086"]
+        options: >-
+          --health-cmd="influx ping -h http://localhost:8086"
+          --health-interval=5s --health-timeout=3s --health-retries=30
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: miniouser
+          MINIO_ROOT_PASSWORD: miniopass123
+        ports: ["9000:9000"]
+        options: >-
+          --health-cmd="curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval=5s --health-timeout=3s --health-retries=30
+        command: server /data
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seed Timescale schema
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          until pg_isready -h localhost -p 5432 -U dtp; do sleep 2; done
+          PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
+      - name: Install deps
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run tests
+        env:
+          PGUSER: dtp
+          PGPASSWORD: dtp
+          PGDATABASE: dtp
+          NEO4J_PASSWORD: neo
+          INFLUX_TOKEN: devtoken1234567890
+          INFLUX_ORG: dtp-org
+          INFLUX_BUCKET: signals
+          MINIO_ACCESS_KEY: miniouser
+          MINIO_SECRET_KEY: miniopass123
+          MINIO_BUCKET: dtp-artifacts
+        run: python scripts/test_all.py

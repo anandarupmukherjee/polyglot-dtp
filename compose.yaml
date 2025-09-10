@@ -1,0 +1,58 @@
+version: "3.9"
+services:
+  db:
+    image: timescale/timescaledb:pg16-latest
+    environment:
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+      POSTGRES_DB: ${PGDATABASE}
+    ports: ["5432:5432"]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U ${PGUSER} -d ${PGDATABASE}"]
+      interval: 5s; timeout: 3s; retries: 20
+
+  neo4j:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+    ports: ["7474:7474","7687:7687"]
+    volumes: [ "neo4jdata:/data" ]
+    healthcheck:
+      test: ["CMD","wget","--spider","-q","http://localhost:7474"]
+      interval: 5s; timeout: 3s; retries: 30
+
+  influx:
+    image: influxdb:2
+    ports: ["8086:8086"]
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
+    volumes: [ "influxdata:/var/lib/influxdb2" ]
+    healthcheck:
+      test: ["CMD","influx","ping","-h","http://localhost:8086"]
+      interval: 5s; timeout: 3s; retries: 30
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    ports: ["9000:9000","9001:9001"]
+    volumes: [ "miniodata:/data" ]
+    healthcheck:
+      test: ["CMD","curl","-f","http://localhost:9000/minio/health/live"]
+      interval: 5s; timeout: 3s; retries: 30
+
+volumes:
+  dbdata:
+  neo4jdata:
+  influxdata:
+  miniodata:
