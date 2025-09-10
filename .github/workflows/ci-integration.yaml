@@ -6,31 +6,26 @@ on:
 jobs:
   integ:
     runs-on: ubuntu-latest
-    services:
-      db:
-        image: timescale/timescaledb:pg16-latest
-        env:
-          POSTGRES_USER: dtp
-          POSTGRES_PASSWORD: dtp
-          POSTGRES_DB: dtp
-        ports: ["5432:5432"]
-      neo4j:
-        image: neo4j:5
-        env:
-          NEO4J_AUTH: neo4j/neo
-        ports: ["7687:7687","7474:7474"]
-      influx:
-        image: influxdb:2
-        env:
-          DOCKER_INFLUXDB_INIT_MODE: setup
-          DOCKER_INFLUXDB_INIT_USERNAME: dtp
-          DOCKER_INFLUXDB_INIT_PASSWORD: dtp
-          DOCKER_INFLUXDB_INIT_ORG: dtp-org
-          DOCKER_INFLUXDB_INIT_BUCKET: signals
-          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: devtoken1234567890
-        ports: ["8086:8086"]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start DB containers (docker)
+        run: |
+          sudo docker network create dtp || true
+          sudo docker run -d --name db --network dtp \
+            -e POSTGRES_USER=dtp -e POSTGRES_PASSWORD=dtp -e POSTGRES_DB=dtp \
+            -p 5432:5432 timescale/timescaledb:pg16-latest
+          sudo docker run -d --name neo4j --network dtp \
+            -e NEO4J_AUTH=neo4j/neo \
+            -p 7687:7687 -p 7474:7474 neo4j:5
+          sudo docker run -d --name influx --network dtp \
+            -e DOCKER_INFLUXDB_INIT_MODE=setup \
+            -e DOCKER_INFLUXDB_INIT_USERNAME=dtp \
+            -e DOCKER_INFLUXDB_INIT_PASSWORD=dtp \
+            -e DOCKER_INFLUXDB_INIT_ORG=dtp-org \
+            -e DOCKER_INFLUXDB_INIT_BUCKET=signals \
+            -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 \
+            -p 8086:8086 influxdb:2
 
       - name: Seed Timescale schema
         run: |
@@ -45,14 +40,7 @@ jobs:
           echo "Waiting for Influx at http://localhost:8086/health ..."
           until curl -sSf http://localhost:8086/health >/dev/null; do sleep 2; done
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-
-      - name: Install deps
-        run: pip install -r scripts/requirements.txt
-
-      - name: Run integration tests (no S3)
+      - name: Run integration tests inside container (no S3)
         env:
           PGUSER: dtp
           PGPASSWORD: dtp
@@ -62,4 +50,9 @@ jobs:
           INFLUX_ORG: dtp-org
           INFLUX_BUCKET: signals
           DTP_SKIP_MINIO: "1"
-        run: python scripts/test_all.py
+        run: |
+          sudo docker run --rm --network dtp \
+            -e PGUSER -e PGPASSWORD -e PGDATABASE -e NEO4J_PASSWORD \
+            -e INFLUX_TOKEN -e INFLUX_ORG -e INFLUX_BUCKET -e DTP_SKIP_MINIO \
+            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -v "$GITHUB_WORKSPACE/sql:/app/sql:ro" \
+            -w /app python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_all.py"
