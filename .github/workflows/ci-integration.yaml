@@ -8,24 +8,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Start Timescale (docker)
+      - name: Start Postgres (docker)
         run: |
           set -euo pipefail
           NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
           CNAME=db-${GITHUB_RUN_ID}
           sudo docker network create "$NET" || true
-          sudo docker pull timescale/timescaledb:pg16-latest
+          sudo docker pull postgres:16-alpine
           sudo docker run -d --name "$CNAME" --network "$NET" --network-alias db \
             -e POSTGRES_USER=dtp -e POSTGRES_PASSWORD=dtp -e POSTGRES_DB=dtp \
-            timescale/timescaledb:pg16-latest || {
-              echo "Timescale failed to start"; sudo docker logs "$CNAME" || true; sudo docker ps -a; exit 1;
+            postgres:16-alpine || {
+              echo "Postgres failed to start"; sudo docker logs "$CNAME" || true; sudo docker ps -a; exit 1;
             }
-      - name: Seed Timescale schema
+      - name: Seed PG schema (no Timescale)
         run: |
           NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
-          sudo docker run --rm --network "$NET" -e PGPASSWORD=dtp \
-            -v "$GITHUB_WORKSPACE/sql:/sql:ro" postgres:16-alpine \
-            sh -lc 'until pg_isready -h db -p 5432 -U dtp; do sleep 2; done; psql -h db -U dtp -d dtp -f /sql/timescale.sql'
+          sudo docker run --rm --network "$NET" -e PGPASSWORD=dtp postgres:16-alpine \
+            sh -lc '
+              until pg_isready -h db -p 5432 -U dtp; do sleep 2; done;
+              psql -h db -U dtp -d dtp -c "create table if not exists observation(\n                signal_id uuid not null,\n                ts timestamptz not null,\n                value_double double precision,\n                value_text text,\n                quality jsonb not null default '{}'::jsonb,\n                source text,\n                primary key (signal_id, ts)\n              );";
+              psql -h db -U dtp -d dtp -c "create index if not exists obs_ts_desc on observation (ts desc);";
+              psql -h db -U dtp -d dtp -c "create table if not exists signal(\n                signal_id uuid primary key,\n                name text not null,\n                unit text\n              );";
+            '
       - name: Run PG test inside container
         run: |
           NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
