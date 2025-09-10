@@ -2,6 +2,7 @@ import os, time, math, random
 from datetime import datetime, timezone
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
+import paho.mqtt.client as mqtt
 
 
 LOCAL_URL = os.getenv("LOCAL_INFLUX_URL", "http://localhost:8086")
@@ -9,10 +10,10 @@ LOCAL_ORG = os.getenv("LOCAL_ORG", "lift-org")
 LOCAL_BUCKET = os.getenv("LOCAL_BUCKET", "lift")
 LOCAL_TOKEN_FILE = os.getenv("LOCAL_TOKEN_FILE", "/var/lib/influxdb2/influx.token")
 
-CENTRAL_URL = os.getenv("CENTRAL_INFLUX_URL", "http://influx:8086")
-CENTRAL_ORG = os.getenv("INFLUX_ORG", "dtp-org")
-CENTRAL_BUCKET = os.getenv("INFLUX_BUCKET", "signals")
-CENTRAL_TOKEN = os.getenv("INFLUX_TOKEN", "")
+# MQTT for alerts
+MQTT_HOST = os.getenv("MQTT_BROKER_HOST", "mqtt")
+MQTT_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+MQTT_TOPIC = os.getenv("MQTT_ALERT_TOPIC", "dtp/lift/alerts")
 
 VIB_THRESHOLD = float(os.getenv("VIB_THRESHOLD", "2.0"))
 LIFT_ID = os.getenv("LIFT_ID", "lift-001")
@@ -40,12 +41,15 @@ def main():
         return
 
     local = InfluxDBClient(url=LOCAL_URL, token=local_token, org=LOCAL_ORG)
-    central = None
-    if CENTRAL_TOKEN:
-        central = InfluxDBClient(url=CENTRAL_URL, token=CENTRAL_TOKEN, org=CENTRAL_ORG)
 
     w_local = local.write_api(write_options=SYNCHRONOUS)
-    w_central = central.write_api(write_options=SYNCHRONOUS) if central else None
+    # MQTT publisher
+    mqtt_client = mqtt.Client()
+    try:
+        mqtt_client.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
+        mqtt_client.loop_start()
+    except Exception as e:
+        print(f"[Lift] WARN: MQTT connect failed: {e}")
 
     t0 = time.time()
     while True:
@@ -76,9 +80,20 @@ def main():
             )
             # write locally
             w_local.write(bucket=LOCAL_BUCKET, record=a)
-            # send only alerts to central
-            if w_central:
-                w_central.write(bucket=CENTRAL_BUCKET, record=a)
+            # publish alert over MQTT
+            try:
+                payload = {
+                    "type": "vibration_alert",
+                    "lift_id": LIFT_ID,
+                    "rms": float(rms),
+                    "threshold": VIB_THRESHOLD,
+                    "ts": now.isoformat(),
+                    "source": "lift-twin"
+                }
+                import json
+                mqtt_client.publish(MQTT_TOPIC, json.dumps(payload), qos=1)
+            except Exception as e:
+                print(f"[Lift] WARN: MQTT publish failed: {e}")
             print(f"[Lift] ALERT: {msg}")
 
         time.sleep(1)
@@ -86,4 +101,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

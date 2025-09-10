@@ -9,7 +9,7 @@ RUN apk add --no-cache bash python3 py3-pip
 COPY --from=influx /usr/local/bin/influxd /usr/local/bin/influxd
 COPY --from=influx /usr/local/bin/influx /usr/local/bin/influx
 
-RUN pip3 install --break-system-packages --no-cache-dir influxdb-client==1.45.0
+RUN pip3 install --break-system-packages --no-cache-dir influxdb-client==1.45.0 paho-mqtt==1.6.1
 
 WORKDIR /app
 COPY entrypoint.sh /app/entrypoint.sh
