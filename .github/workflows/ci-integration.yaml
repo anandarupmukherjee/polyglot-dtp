@@ -15,12 +15,13 @@ jobs:
           sudo docker network create "$NET" || true
           sudo docker run -d --name "$CNAME" --network "$NET" --network-alias db \
             -e POSTGRES_USER=dtp -e POSTGRES_PASSWORD=dtp -e POSTGRES_DB=dtp \
-            -p 5432:5432 timescale/timescaledb:pg16-latest
+            timescale/timescaledb:pg16-latest
       - name: Seed Timescale schema
         run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-          until pg_isready -h localhost -p 5432 -U dtp; do sleep 2; done
-          PGPASSWORD=dtp psql -h localhost -U dtp -d dtp -f sql/timescale.sql
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" -e PGPASSWORD=dtp \
+            -v "$GITHUB_WORKSPACE/sql:/sql:ro" postgres:16-alpine \
+            sh -lc 'until pg_isready -h db -p 5432 -U dtp; do sleep 2; done; psql -h db -U dtp -d dtp -f /sql/timescale.sql'
       - name: Run PG test inside container
         run: |
           NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
@@ -45,11 +46,12 @@ jobs:
           CNAME=neo4j-${GITHUB_RUN_ID}
           sudo docker network create "$NET" || true
           sudo docker run -d --name "$CNAME" --network "$NET" --network-alias neo4j \
-            -e NEO4J_AUTH=neo4j/neo \
-            -p 7474:7474 -p 7687:7687 neo4j:5
+            -e NEO4J_AUTH=neo4j/neo neo4j:5
       - name: Wait for Neo4j HTTP
         run: |
-          until curl -sSf http://localhost:7474 >/dev/null; do sleep 2; done
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" curlimages/curl:8.7.1 \
+            sh -lc 'until curl -sSf http://neo4j:7474 > /dev/null; do sleep 2; done'
       - name: Run Neo4j test inside container
         env:
           NEO4J_PASSWORD: neo
@@ -81,11 +83,12 @@ jobs:
             -e DOCKER_INFLUXDB_INIT_PASSWORD=dtp \
             -e DOCKER_INFLUXDB_INIT_ORG=dtp-org \
             -e DOCKER_INFLUXDB_INIT_BUCKET=signals \
-            -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 \
-            -p 8086:8086 influxdb:2
+            -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 influxdb:2
       - name: Wait for Influx health
         run: |
-          until curl -sSf http://localhost:8086/health >/dev/null; do sleep 2; done
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" curlimages/curl:8.7.1 \
+            sh -lc 'until curl -sSf http://influx:8086/health > /dev/null; do sleep 2; done'
       - name: Run Influx test inside container
         env:
           INFLUX_TOKEN: devtoken1234567890
