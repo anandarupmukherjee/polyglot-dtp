@@ -75,7 +75,14 @@ def run():
             continue
         try:
             if cand.suffix in (".yaml", ".yml"):
-                raw = yaml.safe_load(cand.read_text(encoding="utf-8"))
+                txt = cand.read_text(encoding="utf-8")
+                # Allow '@id:' keys by rewriting to 'twin_id:' for YAML parsers
+                try:
+                    raw = yaml.safe_load(txt)
+                except Exception:
+                    import re
+                    txt2 = re.sub(r"(?m)^\s*@id\s*:\s*", "twin_id: ", txt)
+                    raw = yaml.safe_load(txt2)
             else:
                 raw = json.loads(cand.read_text(encoding="utf-8"))
             payload = normalize(raw or {}, twin_dir)
