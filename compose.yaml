@@ -110,34 +110,29 @@ services:
       - DJANGO_DEBUG=1
       - SECRET_KEY=devsecret
       - ALLOWED_HOSTS=*
-      - CORS_ORIGINS=http://localhost:8083
+      - CORS_ORIGINS=http://localhost:8083,http://localhost:8080
       - PGHOST=db
       - PGPORT=5432
       - PGUSER=${PGUSER}
       - PGPASSWORD=${PGPASSWORD}
       - PGDATABASE=${PGDATABASE}
+      - INFLUX_URL=http://influx:8086
+      - INFLUX_ORG=${INFLUX_ORG}
+      - INFLUX_BUCKET=${INFLUX_BUCKET}
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
     depends_on:
-      - db
-    ports: ["8084:8000"]
+      db:
+        condition: service_healthy
+    ports: ["8085:8000"]
     restart: unless-stopped
 
   reactui:
-    build: ./ui/react
+    build:
+      context: ./ui/react
+      args:
+        # Use same-origin; Nginx proxies /api -> django
+        VITE_API_BASE: ""
     ports: ["8083:80"]
-    restart: unless-stopped
-
-  twin_lift:
-    build: ./twins/lift
-    environment:
-      - MQTT_BROKER_HOST=mqtt.local
-      - MQTT_BROKER_PORT=1883
-      - MQTT_ALERT_TOPIC=dtp/lift/alerts
-      - VIB_THRESHOLD=2.0
-      - LIFT_ID=lift-001
-    depends_on:
-      - mqtt
-    ports:
-      - "3001:3000" # Grafana UI for this twin
     restart: unless-stopped
 
   alert_gateway:
@@ -150,6 +145,8 @@ services:
       - INFLUX_ORG=${INFLUX_ORG}
       - INFLUX_BUCKET=${INFLUX_BUCKET}
       - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - REGISTRY_URL=http://django:8000/api/registry/public/twins
+      - TENANT=demo
     depends_on:
       - mqtt
       - influx

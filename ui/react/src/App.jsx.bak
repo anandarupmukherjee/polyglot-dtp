@@ -1,6 +1,6 @@
-﻿import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
-const apiBase = import.meta.env.VITE_API_BASE || ''
+const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:8084'
 const tokenKey = 'dtp_token'
 
 export default function App(){
@@ -87,7 +87,7 @@ export default function App(){
     if(!res.ok){ setLastData({}); return }
     const data = await res.json()
     const map = {}
-    ;(data.items||[]).forEach(it => { map[it.twin_id] = { ts: it.last_ts || null, source: it.source || null } })
+    ;(data.items||[]).forEach(it => { map[it.twin_id] = it.last_ts })
     setLastData(map)
   }
   const loadMe = async () => {
@@ -197,28 +197,8 @@ export default function App(){
           </span>
         )}
       </h1>
-      <div style={{ display: 'none' }}>
-        Backend: <code>{apiBase}</code> Â· Health: {health.ok ? 'OK' : 'Down'} Â· DB: {health.db ? 'OK' : 'ERR'} Â· Influx cfg: {health.influx_configured ? 'Yes' : 'No'} {health.cron ? 'Â· cron ON' : ''} Â· Updated: {health.ts || '-'}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center', margin: '.25rem 0' }}>
-        <span style={{ fontSize: '.85em', padding: '.2rem .5rem', borderRadius: '9999px', border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#334155' }}>
-          <strong>Backend</strong>: <code>{apiBase || window.location.origin}</code>
-        </span>
-        <span style={{ fontSize: '.85em', padding: '.2rem .5rem', borderRadius: '9999px', border: (health.ok ? '1px solid #86efac' : '1px solid #fecaca'), background: (health.ok ? '#dcfce7' : '#fee2e2'), color: (health.ok ? '#166534' : '#991b1b') }}>
-          <strong>Health</strong>: {health.ok ? 'OK' : 'Down'}
-        </span>
-        <span style={{ fontSize: '.85em', padding: '.2rem .5rem', borderRadius: '9999px', border: (health.db ? '1px solid #86efac' : '1px solid #fecaca'), background: (health.db ? '#dcfce7' : '#fee2e2'), color: (health.db ? '#166534' : '#991b1b') }}>
-          <strong>DB</strong>: {health.db ? 'OK' : 'ERR'}
-        </span>
-        <span style={{ fontSize: '.85em', padding: '.2rem .5rem', borderRadius: '9999px', border: (health.influx_configured ? '1px solid #86efac' : '1px solid #fecaca'), background: (health.influx_configured ? '#dcfce7' : '#fee2e2'), color: (health.influx_configured ? '#166534' : '#991b1b') }}>
-          <strong>Influx</strong>: {health.influx_configured ? 'Yes' : 'No'}
-        </span>
-        <span style={{ fontSize: '.85em', padding: '.2rem .5rem', borderRadius: '9999px', border: (health.cron ? '1px solid #86efac' : '1px solid #e2e8f0'), background: (health.cron ? '#dcfce7' : '#f1f5f9'), color: (health.cron ? '#166534' : '#334155') }}>
-          <strong>Cron</strong>: {health.cron ? 'ON' : 'OFF'}
-        </span>
-        <span style={{ fontSize: '.85em', padding: '.2rem .5rem', borderRadius: '9999px', border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#334155' }}>
-          <strong>Updated</strong>: {health.ts || '-'}
-        </span>
+      <div style={{ fontSize: '.9em', color: '#334155', padding: '.25rem 0' }}>
+        Backend: <code>{apiBase}</code> · Health: {health.ok ? 'OK' : 'Down'} · DB: {health.db ? 'OK' : 'ERR'} · Influx cfg: {health.influx_configured ? 'Yes' : 'No'} {health.cron ? '· cron ON' : ''} · Updated: {health.ts || '-'}
       </div>
       <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem', margin: '.5rem 0' }}>
         <h2>Login</h2>
@@ -238,111 +218,3 @@ export default function App(){
            return (
              <div key={t.twin_id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem', margin: '.5rem 0' }}>
                <strong>{t.name}</strong><br />
-               <a href={t.ui_url} target='_blank' rel='noopener' style={{ display: 'inline-block', marginTop: '.5rem', background: '#2563eb', color: '#fff', padding: '.5rem .75rem', borderRadius: 6, textDecoration: 'none' }}>Open UI</a>
-               <div style={{ marginTop: '.35rem', fontSize: '.85em', color: '#475569' }}>
-                 {last ? `Last data: ${last}` : 'Last data: unknown'}
-               </div>
-             </div>
-           )
-          })}
-        </div>
-      )}
-      {/* DTR (Registry) */}
-      <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem', margin: '.5rem 0' }}>
-        <h2>My Registry Twins (DTR)</h2>
-        <div>
-          {me?.is_staff && (
-            <>
-              <label>Scope: </label>
-              <button type='button' onClick={() => { setScope('mine'); loadRegistryTwins(); loadServices(); }} disabled={scope==='mine'}>Mine</button>
-              <button type='button' onClick={() => { setScope('all'); loadRegistryTwins(); loadServices(); }} disabled={scope==='all'} style={{ marginLeft: '.5rem' }}>All</button>
-              <span style={{ marginLeft: '.75rem' }} />
-            </>
-          )}
-          <button onClick={() => { loadRegistryTwins(); loadServices(); }}>Refresh</button>
-        </div>
-        <ul>
-          {registryTwins.map(t => (
-            <li key={t.twin_id} style={{ marginTop: '.5rem' }}>
-              <strong>{t.twin_id}</strong> {t.metadata?.status ? `(${t.metadata.status})` : ''}
-              <div style={{ fontSize: '.9em', color: '#334155' }}>
-                <div>API: <code>{t.interfaces?.api || '-'}</code></div>
-                <div>Streams: {(t.interfaces?.data_streams||[]).join(', ') || '-'}</div>
-                <div>Domain: {(t.metadata?.domain||[]).join(', ') || '-'}</div>
-                <div>Last data: {lastData[t.twin_id]?.ts || 'unknown'} {lastData[t.twin_id]?.source ? `· source: ${lastData[t.twin_id].source}` : ''}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Admin panel (staff only) */}
-      {me?.is_staff && (
-        <div style={{ border: '2px solid #94a3b8', borderRadius: 8, padding: '1rem', margin: '.5rem 0', background: '#f8fafc' }}>
-          <h2>Admin</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <h3>Users</h3>
-              <div>
-                <input placeholder='username/email' value={newUser.username} onChange={e=>setNewUser({...newUser, username: e.target.value})} />
-                <input placeholder='email' value={newUser.email} onChange={e=>setNewUser({...newUser, email: e.target.value})} style={{ marginLeft: '.5rem' }} />
-                <input placeholder='password' value={newUser.password} onChange={e=>setNewUser({...newUser, password: e.target.value})} style={{ marginLeft: '.5rem' }} />
-                <button onClick={createUser} style={{ marginLeft: '.5rem' }}>Create</button>
-              </div>
-              <ul>
-                {admin.users.map(u => (
-                  <li key={u.id}>
-                    {u.username} {u.is_staff ? '(admin)' : ''}
-                    <button onClick={() => deleteUser(u.username)} style={{ marginLeft: '.5rem' }}>Delete</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3>Twins & Grants</h3>
-              <div>
-                <input placeholder='name' value={newTwin.name} onChange={e=>setNewTwin({...newTwin, name: e.target.value})} />
-                <input placeholder='ui_url' value={newTwin.ui_url} onChange={e=>setNewTwin({...newTwin, ui_url: e.target.value})} style={{ marginLeft: '.5rem' }} />
-                <input placeholder='dtr_id' value={newTwin.dtr_id} onChange={e=>setNewTwin({...newTwin, dtr_id: e.target.value})} style={{ marginLeft: '.5rem' }} />
-                <button onClick={createTwin} style={{ marginLeft: '.5rem' }}>Create</button>
-              </div>
-              {/* Existing Twin Cards */}
-              <div style={{ marginTop: '.75rem' }}>
-                <h4 style={{ margin: '.25rem 0' }}>Existing Twin Cards</h4>
-                <ul>
-                  {(admin.twins || []).map(t => (
-                    <li key={t.twin_id} style={{ marginTop: '.35rem' }}>
-                      <strong>{t.name}</strong> — UI: <code>{t.ui_url}</code> {t.dtr_id ? `· DTR: ${t.dtr_id}` : ''} · id: <code>{t.twin_id}</code>
-                      <button onClick={() => deleteTwin(t.twin_id)} style={{ marginLeft: '.5rem' }}>Delete</button>
-                      <button onClick={() => setNewGrant({ ...newGrant, twin_id: t.twin_id })} style={{ marginLeft: '.5rem' }}>Use ID for grant</button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div style={{ marginTop: '.5rem' }}>
-                <input placeholder='username' value={newGrant.username} onChange={e=>setNewGrant({...newGrant, username: e.target.value})} />
-                <input placeholder='twin_id' value={newGrant.twin_id} onChange={e=>setNewGrant({...newGrant, twin_id: e.target.value})} style={{ marginLeft: '.5rem' }} />
-                <button onClick={createGrant} style={{ marginLeft: '.5rem' }}>Grant</button>
-              </div>
-            </div>
-          </div>
-          <div style={{ marginTop: '1rem' }}>
-            <h3>Grants</h3>
-            <ul>
-              {(admin.grants || []).map(g => (
-                <li key={`${g.user}::${g.twin_id}`}>
-                  {g.user} → {g.twin} <code>({g.twin_id})</code>
-                  <button onClick={() => deleteGrant(g.user, g.twin_id)} style={{ marginLeft: '.5rem' }}>Revoke</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {/* end content */}
-    </div>
-  )
-}
-
-const btnStyle = { display: 'inline-block', marginTop: '.5rem', background: '#2563eb', color: '#fff', padding: '.5rem .75rem', borderRadius: 6, textDecoration: 'none' }

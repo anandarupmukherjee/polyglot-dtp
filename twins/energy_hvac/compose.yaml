@@ -1,69 +1,64 @@
-version: "3.9"
 services:
   influx_local:
     image: influxdb:2
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: lift
-      DOCKER_INFLUXDB_INIT_PASSWORD: liftpass123
-      DOCKER_INFLUXDB_INIT_ORG: lift-org
-      DOCKER_INFLUXDB_INIT_BUCKET: lift
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: lift-token-123
+      DOCKER_INFLUXDB_INIT_USERNAME: energy
+      DOCKER_INFLUXDB_INIT_PASSWORD: energypass123
+      DOCKER_INFLUXDB_INIT_ORG: energy-org
+      DOCKER_INFLUXDB_INIT_BUCKET: energy
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: energy-token-123
     volumes:
       - influxdata:/var/lib/influxdb2
-    networks: [lift_net]
+    networks: [energy_net]
 
   generator:
     image: python:3.11-slim
     working_dir: /app
     volumes:
       - .:/app:ro
-      - shared:/app/shared
+    env_file:
+      - ../../.env
     command: ["bash","-lc","pip install --no-cache-dir influxdb-client paho-mqtt && python /app/generator.py"]
     environment:
       LOCAL_INFLUX_URL: http://influx_local:8086
-      LOCAL_ORG: lift-org
-      LOCAL_BUCKET: lift
-      LOCAL_TOKEN: lift-token-123
+      LOCAL_ORG: energy-org
+      LOCAL_BUCKET: energy
+      LOCAL_TOKEN: energy-token-123
+      SITE_ID: site-a
+      ENERGY_RATE: "0.25"
       MQTT_BROKER_HOST: mqtt.local
       MQTT_BROKER_PORT: "1883"
-      VIB_THRESHOLD: "2.0"
-      LIFT_ID: lift-001
       CENTRAL_INFLUX_URL: http://influx.local:8086
       CENTRAL_INFLUX_ORG: ${INFLUX_ORG}
       CENTRAL_INFLUX_BUCKET: ${INFLUX_BUCKET}
       CENTRAL_INFLUX_TOKEN: ${INFLUX_TOKEN}
     depends_on: [influx_local]
-    networks: [lift_net, main_net]
+    networks: [energy_net, main_net]
 
   ui:
     image: python:3.11-slim
     working_dir: /app
     volumes:
       - ./ui:/app
-      - shared:/app/shared
+    env_file:
+      - ../../.env
     command: ["bash","-lc","pip install --no-cache-dir cherrypy influxdb-client && python /app/app.py"]
     environment:
-      LIFT_INFLUX_URL: http://influx_local:8086
-      LIFT_INFLUX_ORG: lift-org
-      LIFT_INFLUX_BUCKET: lift
-      LIFT_INFLUX_TOKEN: lift-token-123
-      CENTRAL_INFLUX_URL: http://influx.local:8086
-      CENTRAL_INFLUX_ORG: ${INFLUX_ORG}
-      CENTRAL_INFLUX_BUCKET: ${INFLUX_BUCKET}
-      CENTRAL_INFLUX_TOKEN: ${INFLUX_TOKEN}
+      ENERGY_INFLUX_URL: http://influx_local:8086
+      ENERGY_INFLUX_ORG: energy-org
+      ENERGY_INFLUX_BUCKET: energy
+      ENERGY_INFLUX_TOKEN: energy-token-123
     ports:
-      - "3001:8000"
+      - "3002:8000"
     depends_on: [influx_local]
-    networks: [lift_net]
+    networks: [energy_net]
 
 networks:
-  lift_net:
-    name: lift_net
+  energy_net: {}
   main_net:
     external: true
     name: polyglot-dtp_default
 
 volumes:
-  influxdata:
-  shared:
+  influxdata: {}

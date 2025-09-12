@@ -1,0 +1,14 @@
+@id: dt:EnergyHVAC_001
+name: Energy & HVAC
+tenant: demo
+metadata:
+  domain: [Energy, HVAC]
+  status: instantiated
+interfaces:
+  api: http://localhost:3002
+  data_streams:
+    - MQTT:dtp/energy_hvac/events
+dependencies:
+  static: []
+  dynamic: []
+

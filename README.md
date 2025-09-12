@@ -1,4 +1,10 @@
-# Polyglot DTP Testbed (no framework)
+# Modular Twin Registry & Twin Discovery (Polyglot DTP)
+Lightweight, docker-first testbed for a modular Digital Twin Platform featuring:
+- Registry-driven orchestration (DTR + Service Registry)
+- Auto-discovery of twins by scanning `twins/**/twin.yaml`
+- Per-twin local stacks (e.g., Lift, Energy/HVAC) with UI + generator
+- Central portal (React) with auth, admin (users/twins/grants), and live status badges
+- Same-origin API via Nginx proxy for easy local dev
 Spin up Postgres/Timescale, Neo4j, InfluxDB 2, and MinIO. Run one script that writes and reads from each to prove the wiring.
 
 ## Run locally
@@ -13,7 +19,9 @@ Spin up Postgres/Timescale, Neo4j, InfluxDB 2, and MinIO. Run one script that wr
    - MinIO S3: http://localhost:9100 (console http://localhost:9101)
    - Neo4j Browser: http://localhost:7474 (user `neo4j`, pass from `.env`)
    - InfluxDB: http://localhost:8086 (org/bucket/token from `.env`)
-   - Portal (links to all UIs): http://localhost:8080
+- Portal (static links): http://localhost:8080
+- React Portal (registry-driven): http://localhost:8083 (API proxied to Django)
+- Lift Twin UI (local to lift stack): http://localhost:3001
 
 ### Option B: Linux/Mac (Makefile helper)
 1. `cp .env.example .env`
@@ -35,6 +43,33 @@ The MinIO test auto-detects which backend to use via `MINIO_ENDPOINT`.
 - Timescale hypertable is created by `data-storage/sql/timescale.sql`.
 - Influx is pre-seeded with org/bucket/token from `.env`.
 - Tests run purely with Python clients; no external frameworks required.
+
+### Registry-driven orchestration (overview)
+- Registry APIs (DTR + Service Registry):
+  - `POST /api/registry/twins` — attach/register a twin with `{"@id","tenant","metadata","interfaces","dependencies"}`
+  - `PATCH /api/registry/twins/{id}` — update lifecycle/status or interfaces/dependencies
+  - `DELETE /api/registry/twins/{id}?soft=true` — set status to `deprecated`; hard delete if `soft` omitted
+  - `GET /api/registry/twins?tenant=...` — list twins (portal source of truth)
+  - `POST /api/registry/services` — register a service with `{category,interfaces,health}`
+- Portal updates (SSE):
+  - `GET /api/portal/stream?tenant=...` — Server-Sent Events for `twin.update|twin.delete|service.update` powering live UI.
+- Data mapping:
+  - Observations → Timescale `observation` hypertable
+  - Events → Postgres `event_log` with JSON body + severity (see `data-storage/sql/events.sql`)
+  - Relationships → Neo4j (via future orchestrator writers)
+  - Blobs → MinIO/S3 (manifest pattern)
+
+Security note: SSE endpoint is open in this demo build for simplicity; secure with cookie auth or an SSE token in production.
+
+### Twin stacks (examples)
+#### Lift Twin
+- The Lift twin now runs as a local docker-compose stack under `twins/lift/compose.yaml` with:
+  - `influx_local`: private InfluxDB 2 (not exposed to host) for the lift’s data.
+  - `generator`: the data generator (`twins/lift/generator.py`) writing to local Influx; emits alerts. When alerts trigger, it also writes alert points to central Influx if `INFLUX_*` env vars are provided.
+  - `ui`: a minimal CherryPy UI showing Vibration RMS and Alerts from the local Influx (host port `3001`).
+- Start the Lift stack:
+  - `docker compose -f twins/lift/compose.yaml up -d`
+- Configure central alert writes via env (in the Lift stack's `generator` service): `CENTRAL_INFLUX_URL`, `INFLUX_ORG`, `INFLUX_BUCKET`, `INFLUX_TOKEN`.
 
 ## Repository Layout
 - `ui/` — portal and future web UIs
@@ -75,3 +110,19 @@ The MinIO test auto-detects which backend to use via `MINIO_ENDPOINT`.
 - Verify data:
   - TimescaleDB: `docker compose exec db psql -U dtp -d dtp -c "select count(*) from observation;"`
   - InfluxDB UI: http://localhost:8086 → Data Explorer → query measurement `observation` in bucket `signals`.
+#### Energy & HVAC Twin
+- Stack under `twins/energy_hvac/` with a generator mirroring to central Influx and a simple CherryPy UI (host port `3002`).
+- Start the stack:
+  - `docker compose -f twins/energy_hvac/compose.yaml up -d`
+- Configure central writes via env in `generator` (picked from repo `.env` via `env_file`).
+
+### Auto-discovery & registration
+- Django startup scans `polyglot-dtp/twins/**/twin.yaml` and registers twins into the DTR, syncing portal cards when possible.
+- Manual/continuous registration:
+  - One-shot: `docker compose run --rm runner bash -lc "pip install -r requirements.txt && python register_twins.py"`
+  - Watch mode: `docker compose run --rm runner bash -lc "pip install -r requirements.txt && python register_twins.py --watch"`
+
+### Portal notes
+- React portal at http://localhost:8083 uses same-origin API (`/api/*`) via the Nginx proxy inside the container.
+- Health badges under the title show Backend, Health, DB, Influx, Cron, and Updated timestamp.
+- Admin (staff-only): Users, Twin Cards, Grants (with revoke).

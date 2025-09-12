@@ -54,25 +54,25 @@
     </footer>
 
     <script>
-      const apiBase = 'http://localhost:8082';
+      const apiBase = 'http://localhost:8085';
       const tokenKey = 'dtp_token';
 
       async function login(email, password){
-        const body = new URLSearchParams();
-        body.append('username', email);
-        body.append('password', password);
-        body.append('grant_type', 'password');
-        const res = await fetch(apiBase + '/api/login', { method: 'POST', body });
+        const res = await fetch(apiBase + '/api/token/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: email, password })
+        });
         if(!res.ok) throw new Error('Login failed');
         const data = await res.json();
-        localStorage.setItem(tokenKey, data.access_token);
-        return data.access_token;
+        localStorage.setItem(tokenKey, data.access);
+        return data.access;
       }
 
       async function fetchTwins(){
         const token = localStorage.getItem(tokenKey);
         if(!token) return [];
-        const res = await fetch(apiBase + '/api/me/twins', { headers: { 'Authorization': 'Bearer ' + token }});
+        const res = await fetch(apiBase + '/api/me/twins/', { headers: { 'Authorization': 'Bearer ' + token }});
         if(!res.ok) return [];
         return res.json();
       }

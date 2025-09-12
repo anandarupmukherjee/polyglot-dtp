@@ -3,3 +3,6 @@ neo4j==5.25.0
 influxdb-client==1.45.0
 minio==7.2.9
 python-dotenv==1.0.1
+requests==2.32.3
+pyyaml==6.0.2
+watchdog==4.0.1

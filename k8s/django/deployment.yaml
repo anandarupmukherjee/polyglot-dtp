@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django
+  namespace: dtp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: django
+  template:
+    metadata:
+      labels:
+        app: django
+    spec:
+      containers:
+      - name: django
+        image: dtp-django:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - { name: DJANGO_DEBUG, value: "1" }
+        - { name: SECRET_KEY, value: devsecret }
+        - { name: ALLOWED_HOSTS, value: "*" }
+        - { name: CORS_ORIGINS, value: "http://localhost:30083" }
+        - { name: PGHOST, value: pg }
+        - { name: PGPORT, value: "5432" }
+        - name: PGUSER
+          valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_USER } }
+        - name: PGPASSWORD
+          valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_PASSWORD } }
+        - name: PGDATABASE
+          valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_DB } }
+        ports:
+        - containerPort: 8000
+          name: http
+

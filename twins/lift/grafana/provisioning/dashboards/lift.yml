@@ -1,9 +1,0 @@
-apiVersion: 1
-providers:
-  - name: 'LiftDashboards'
-    orgId: 1
-    folder: 'Lift'
-    type: file
-    disableDeletion: false
-    options:
-      path: /var/lib/grafana/dashboards

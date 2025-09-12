@@ -48,12 +48,13 @@ def twins(request):
         items = TwinUI.objects.all().order_by("name")
         return Response(TwinUISerializer(items, many=True).data)
     if request.method == "POST":
-        # create twin {name, ui_url}
+        # create twin {name, ui_url, dtr_id?}
         name = request.data.get("name")
         ui_url = request.data.get("ui_url")
+        dtr_id = request.data.get("dtr_id")
         if not name or not ui_url:
             return Response({"detail": "name and ui_url required"}, status=status.HTTP_400_BAD_REQUEST)
-        tw = TwinUI.objects.create(name=name, ui_url=ui_url)
+        tw = TwinUI.objects.create(name=name, ui_url=ui_url, dtr_id=dtr_id)
         return Response(TwinUISerializer(tw).data, status=status.HTTP_201_CREATED)
     # DELETE twin {twin_id}
     twin_id = request.data.get("twin_id")

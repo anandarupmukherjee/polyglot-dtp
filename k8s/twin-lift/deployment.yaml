@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: twin-lift
+  namespace: dtp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: twin-lift
+  template:
+    metadata:
+      labels:
+        app: twin-lift
+    spec:
+      containers:
+      - name: twin-lift
+        image: dtp-twin-lift:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - { name: MQTT_BROKER_HOST, value: mqtt }
+        - { name: MQTT_BROKER_PORT, value: "1883" }
+        - { name: MQTT_ALERT_TOPIC, value: dtp/lift/alerts }
+        - { name: VIB_THRESHOLD, value: "2.0" }
+        - { name: LIFT_ID, value: lift-001 }
+        ports:
+        - containerPort: 3000
+          name: grafana
+
