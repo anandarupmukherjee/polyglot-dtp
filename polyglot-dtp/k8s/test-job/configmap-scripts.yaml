@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dtp-test-scripts
+  namespace: dtp
+data:
+  test_all.py: |
+    import os, json
+    from test_pg_timescale import run as test_pg
+    from test_neo4j import run as test_neo
+    from test_influx import run as test_influx
+    from test_minio import run as test_minio
+
+    def main():
+        results = {
+            "postgres_timescale": test_pg(),
+            "neo4j": test_neo(),
+            "influx": test_influx(),
+        }
+
+        skip_minio = os.getenv("DTP_SKIP_MINIO", "").lower() in ("1", "true", "yes")
+        minio_endpoint = os.getenv("MINIO_ENDPOINT", "")
+        if skip_minio or not minio_endpoint:
+            print("[S3] SKIP: MinIO/LocalStack test disabled")
+        else:
+            results["minio"] = test_minio()
+        print("\n=== SUMMARY ===")
+        print(json.dumps(results, indent=2))
+
+    if __name__ == "__main__":
+        main()
+  test_pg_timescale.py: |
+    import os, uuid, time
+    import psycopg
+    from datetime import datetime, timezone
+
+    PG_DSN = f"dbname={os.getenv('PGDATABASE','dtp')} user={os.getenv('PGUSER','dtp')} password={os.getenv('PGPASSWORD','dtp')} host={os.getenv('PGHOST','db')} port={os.getenv('PGPORT','5432')}"
+
+    def run():
+        sig_id = uuid.uuid4()
+        with psycopg.connect(PG_DSN, autocommit=True) as conn, conn.cursor() as cur:
+            cur.execute("insert into signal(signal_id,name,unit) values(%s,%s,%s) on conflict do nothing",
+                        (sig_id, "temp_room_1", "C"))
+            now = datetime.now(timezone.utc)
+            for i in range(5):
+                cur.execute("""
+                  insert into observation(signal_id, ts, value_double, source)
+                  values (%s, %s, %s, %s)
+                  on conflict do nothing
+                """, (sig_id, now, 20.0 + i, "test_pg"))
+            cur.execute("select count(*) from observation where signal_id=%s", (sig_id,))
+            count = cur.fetchone()[0]
+        assert count >= 1, "Timescale insert failed"
+        print(f"[PG] OK: wrote {count} rows for signal {sig_id}")
+        return {"signal_id": str(sig_id), "rows": count}
+
+    if __name__ == "__main__":
+        run()
+  test_neo4j.py: |
+    import os, uuid
+    from neo4j import GraphDatabase
+
+    URI = "bolt://neo4j:7687"
+    AUTH = ("neo4j", os.getenv("NEO4J_PASSWORD","neosecret1"))
+
+    def run():
+        driver = GraphDatabase.driver(URI, auth=AUTH)
+        twin_id = str(uuid.uuid4())
+        asset_id = str(uuid.uuid4())
+        with driver.session() as s:
+            s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (t:Twin) REQUIRE t.twin_id IS UNIQUE")
+            s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (a:Asset) REQUIRE a.asset_id IS UNIQUE")
+            s.run("MERGE (t:Twin {twin_id:$tid}) SET t.kind='demo'", tid=twin_id)
+            s.run("MERGE (a:Asset {asset_id:$aid}) SET a.type='room'", aid=asset_id)
+            rels = s.run("""
+                MATCH (t:Twin {twin_id:$tid})-[:MIRRORS]->(a:Asset {asset_id:$aid})
+                RETURN count(*) AS c
+            """, tid=twin_id, aid=asset_id).single()["c"]
+        assert rels == 1, "Neo4j relation missing"
+        print(f"[NEO4J] OK: Twin {twin_id} MIRRORS Asset {asset_id}")
+        driver.close()
+        return {"twin_id": twin_id, "asset_id": asset_id}
+
+    if __name__ == "__main__":
+        run()
+  test_influx.py: |
+    import os, time, uuid
+    from datetime import datetime, timezone, timedelta
+    from influxdb_client import InfluxDBClient, Point, WritePrecision
+    from influxdb_client.client.write_api import SYNCHRONOUS
+
+    url = "http://influx:8086"
+    token = os.getenv("INFLUX_TOKEN")
+    org = os.getenv("INFLUX_ORG","dtp-org")
+    bucket = os.getenv("INFLUX_BUCKET","signals")
+
+    def run():
+        sig = str(uuid.uuid4())
+        with InfluxDBClient(url=url, token=token, org=org) as client:
+            write_api = client.write_api(write_options=SYNCHRONOUS)
+            now = datetime.now(timezone.utc)
+            for i in range(5):
+                p = Point("observation").tag("signal_id", sig).field("value", 42.0+i).time(now + timedelta(seconds=i), WritePrecision.NS)
+                write_api.write(bucket=bucket, record=p)
+            query_api = client.query_api()
+            q = f'''from(bucket:"{bucket}") |> range(start: -5m) |> filter(fn:(r) => r._measurement=="observation" and r.signal_id=="{sig}")'''
+            tables = query_api.query(q)
+            cnt = sum(1 for _ in tables[0].records) if tables else 0
+        assert cnt >= 1, "Influx write/query failed"
+        print(f"[INFLUX] OK: wrote {cnt} points for signal {sig}")
+        return {"signal_id": sig, "points": cnt}
+
+    if __name__ == "__main__":
+        run()
+  test_minio.py: |
+    import os, io, uuid
+    from urllib.parse import urlparse
+    from minio import Minio
+
+    def _build_client():
+        endpoint_env = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
+        parsed = urlparse(endpoint_env)
+        endpoint = parsed.netloc or endpoint_env  # strip scheme for Minio client
+        secure = (parsed.scheme == "https")
+
+        access = os.getenv("MINIO_ACCESS_KEY", "miniouser")
+        secret = os.getenv("MINIO_SECRET_KEY", "miniopass123")
+
+        return Minio(endpoint, access_key=access, secret_key=secret, secure=secure)
+
+    client = _build_client()
+    bucket = os.getenv("MINIO_BUCKET", "dtp-artifacts")
+
+    def run():
+        if not client.bucket_exists(bucket):
+            client.make_bucket(bucket)
+
+        key = f"tenant-demo/{uuid.uuid4()}.txt"
+        data = io.BytesIO(b"hello-dtp")
+        client.put_object(
+            bucket_name=bucket,
+            object_name=key,
+            data=data,
+            length=len(b"hello-dtp"),
+            content_type="text/plain",
+        )
+
+        obj = client.get_object(bucket, key)
+        body = obj.read()
+        assert body == b"hello-dtp", "Object content mismatch"
+
+        print(f"[S3] OK: put/get s3://{bucket}/{key}")
+        return {"key": key, "len": len(body)}
+
+    if __name__ == "__main__":
+        run()
+

@@ -1,0 +1,142 @@
+name: polyglot-integration
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Postgres (docker)
+        run: |
+          set -euo pipefail
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          CNAME=db-${GITHUB_RUN_ID}
+          sudo docker network create "$NET" || true
+          sudo docker rm -f "$CNAME" || true
+          sudo docker pull postgres:16-alpine
+          sudo docker run -d --name "$CNAME" --network "$NET" --network-alias db \
+            -e POSTGRES_USER=dtp -e POSTGRES_PASSWORD=dtp -e POSTGRES_DB=dtp \
+            -e POSTGRES_HOST_AUTH_METHOD=trust \
+            postgres:16-alpine || {
+              echo "Postgres failed to start"; sudo docker logs "$CNAME" || true; sudo docker ps -a; exit 1;
+            }
+      - name: Seed PG schema (no Timescale)
+        run: |
+          set -euo pipefail
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" -e PGPASSWORD=dtp postgres:16-alpine \
+            sh -lc '
+              echo "Waiting for Postgres...";
+              until pg_isready -h db -p 5432 -U dtp; do sleep 2; done;
+              echo "Seeding schema...";
+              psql -h db -U dtp -d dtp -v ON_ERROR_STOP=1 -c "create table if not exists observation(\n                signal_id uuid not null,\n                ts timestamptz not null,\n                value_double double precision,\n                value_text text,\n                quality jsonb not null default '{}'::jsonb,\n                source text,\n                primary key (signal_id, ts)\n              );";
+              psql -h db -U dtp -d dtp -v ON_ERROR_STOP=1 -c "create index if not exists obs_ts_desc on observation (ts desc);";
+              psql -h db -U dtp -d dtp -v ON_ERROR_STOP=1 -c "create table if not exists signal(\n                signal_id uuid primary key,\n                name text not null,\n                unit text\n              );";
+            '
+      - name: Verify PG connection
+        run: |
+          set -euo pipefail
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" -e PGPASSWORD=dtp postgres:16-alpine \
+            sh -lc "psql -h db -U dtp -d dtp -v ON_ERROR_STOP=1 -c 'select 1'"
+      - name: Run PG test inside container
+        run: |
+          set -euo pipefail
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" \
+            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -v "$GITHUB_WORKSPACE/sql:/app/sql:ro" \
+            -w /app python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_pg_timescale.py"
+      - name: Collect PG logs on failure
+        if: failure()
+        run: |
+          CNAME=db-${GITHUB_RUN_ID}
+          echo "--- docker ps -a"; sudo docker ps -a || true
+          echo "--- logs for $CNAME"; sudo docker logs "$CNAME" || true
+      - name: Cleanup
+        if: always()
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker ps -a || true
+          sudo docker rm -f db-${GITHUB_RUN_ID} || true
+          sudo docker network rm "$NET" || true
+
+  neo4j:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Neo4j (docker)
+        run: |
+          set -euo pipefail
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          CNAME=neo4j-${GITHUB_RUN_ID}
+          sudo docker network create "$NET" || true
+          sudo docker pull neo4j:5
+          sudo docker run -d --name "$CNAME" --network "$NET" --network-alias neo4j \
+            -e NEO4J_AUTH=neo4j/neo neo4j:5 || {
+              echo "Neo4j failed to start"; sudo docker logs "$CNAME" || true; sudo docker ps -a; exit 1;
+            }
+      - name: Wait for Neo4j HTTP
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" curlimages/curl:8.7.1 \
+            sh -lc 'until curl -sSf http://neo4j:7474 > /dev/null; do sleep 2; done'
+      - name: Run Neo4j test inside container
+        env:
+          NEO4J_PASSWORD: neo
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" \
+            -e NEO4J_PASSWORD \
+            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -w /app \
+            python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_neo4j.py"
+      - name: Cleanup
+        if: always()
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker rm -f neo4j-${GITHUB_RUN_ID} || true
+          sudo docker network rm "$NET" || true
+
+  influx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Influx (docker)
+        run: |
+          set -euo pipefail
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          CNAME=influx-${GITHUB_RUN_ID}
+          sudo docker network create "$NET" || true
+          sudo docker pull influxdb:2
+          sudo docker run -d --name "$CNAME" --network "$NET" --network-alias influx \
+            -e DOCKER_INFLUXDB_INIT_MODE=setup \
+            -e DOCKER_INFLUXDB_INIT_USERNAME=dtp \
+            -e DOCKER_INFLUXDB_INIT_PASSWORD=dtp \
+            -e DOCKER_INFLUXDB_INIT_ORG=dtp-org \
+            -e DOCKER_INFLUXDB_INIT_BUCKET=signals \
+            -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken1234567890 influxdb:2 || {
+              echo "InfluxDB failed to start"; sudo docker logs "$CNAME" || true; sudo docker ps -a; exit 1;
+            }
+      - name: Wait for Influx health
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" curlimages/curl:8.7.1 \
+            sh -lc 'until curl -sSf http://influx:8086/health > /dev/null; do sleep 2; done'
+      - name: Run Influx test inside container
+        env:
+          INFLUX_TOKEN: devtoken1234567890
+          INFLUX_ORG: dtp-org
+          INFLUX_BUCKET: signals
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker run --rm --network "$NET" \
+            -e INFLUX_TOKEN -e INFLUX_ORG -e INFLUX_BUCKET \
+            -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -w /app \
+            python:3.11 bash -lc "pip install -r scripts/requirements.txt && python scripts/test_influx.py"
+      - name: Cleanup
+        if: always()
+        run: |
+          NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
+          sudo docker rm -f influx-${GITHUB_RUN_ID} || true
+          sudo docker network rm "$NET" || true

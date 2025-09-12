@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influx
+  namespace: dtp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: influx
+  template:
+    metadata:
+      labels:
+        app: influx
+    spec:
+      containers:
+      - name: influx
+        image: influxdb:2
+        envFrom:
+        - secretRef:
+            name: influx-secret
+        ports:
+        - { containerPort: 8086, name: http }
+        volumeMounts:
+        - { name: data, mountPath: /var/lib/influxdb2 }
+      volumes:
+      - name: data
+        emptyDir: {}
+

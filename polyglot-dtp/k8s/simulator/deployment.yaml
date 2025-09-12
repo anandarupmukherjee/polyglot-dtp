@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  namespace: dtp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simulator
+  template:
+    metadata:
+      labels:
+        app: simulator
+    spec:
+      containers:
+      - name: simulator
+        image: dtp-simulator:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - { name: MQTT_BROKER_HOST, value: mqtt }
+        - { name: MQTT_BROKER_PORT, value: "1883" }
+        - { name: PGHOST, value: pg }
+        - { name: PGPORT, value: "5432" }
+        - { name: INFLUX_URL, value: http://influx:8086 }
+

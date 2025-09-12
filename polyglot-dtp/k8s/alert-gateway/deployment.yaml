@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-gateway
+  namespace: dtp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-gateway
+  template:
+    metadata:
+      labels:
+        app: alert-gateway
+    spec:
+      containers:
+      - name: alert-gateway
+        image: dtp-alert-gateway:dev
+        imagePullPolicy: IfNotPresent
+        env:
+        - { name: MQTT_BROKER_HOST, value: mqtt }
+        - { name: MQTT_BROKER_PORT, value: "1883" }
+        - { name: MQTT_ALERT_TOPIC, value: dtp/lift/alerts }
+        - { name: CENTRAL_INFLUX_URL, value: http://influx:8086 }
+        - name: INFLUX_ORG
+          valueFrom: { secretKeyRef: { name: influx-secret, key: DOCKER_INFLUXDB_INIT_ORG } }
+        - name: INFLUX_BUCKET
+          valueFrom: { secretKeyRef: { name: influx-secret, key: DOCKER_INFLUXDB_INIT_BUCKET } }
+        - name: INFLUX_TOKEN
+          valueFrom: { secretKeyRef: { name: influx-secret, key: DOCKER_INFLUXDB_INIT_ADMIN_TOKEN } }
+

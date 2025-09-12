@@ -1,0 +1,15 @@
+@id: dt:Lift_001
+name: Lift Maintenance
+tenant: demo
+metadata:
+  domain: [Lift]
+  status: instantiated
+  lift_id: lift-001
+interfaces:
+  api: http://localhost:3001
+  data_streams:
+    - MQTT:dtp/lift/alerts
+dependencies:
+  static: []
+  dynamic: []
+

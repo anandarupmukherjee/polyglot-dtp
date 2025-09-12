@@ -1,0 +1,21 @@
+create extension if not exists timescaledb;
+
+create table if not exists observation(
+  signal_id uuid not null,
+  ts timestamptz not null,
+  value_double double precision,
+  value_text text,
+  quality jsonb not null default '{}',
+  source text,
+  primary key (signal_id, ts)
+);
+
+select create_hypertable('observation','ts', if_not_exists => true);
+create index if not exists obs_ts_desc on observation (ts desc);
+
+-- simple catalog to join against
+create table if not exists signal(
+  signal_id uuid primary key,
+  name text not null,
+  unit text
+);

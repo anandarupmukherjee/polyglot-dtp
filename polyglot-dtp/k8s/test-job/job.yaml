@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dtp-test
+  namespace: dtp
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: tester
+        image: python:3.11-slim
+        workingDir: /app
+        env:
+          - { name: PGUSER, value: "dtp" }
+          - { name: PGPASSWORD, value: "dtpsecret1" }
+          - { name: PGDATABASE, value: "dtp" }
+          - { name: PGHOST, value: "pg" }
+          - { name: PGPORT, value: "5432" }
+          - { name: NEO4J_PASSWORD, value: "neosecret1" }
+          - { name: INFLUX_TOKEN, value: "dtp-token-123456" }
+          - { name: INFLUX_ORG, value: "dtp-org" }
+          - { name: INFLUX_BUCKET, value: "signals" }
+          - { name: MINIO_ENDPOINT, value: "http://minio:9000" }
+          - { name: MINIO_ACCESS_KEY, value: "miniouser" }
+          - { name: MINIO_SECRET_KEY, value: "miniopass123" }
+          - { name: MINIO_BUCKET, value: "dtp-artifacts" }
+        command: ["/bin/sh","-lc"]
+        args:
+          - |
+            pip install --no-cache-dir psycopg[binary]==3.1.20 neo4j==5.25.0 influxdb-client==1.45.0 minio==7.2.9 && \
+            python /app/test_all.py
+        volumeMounts:
+          - name: scripts
+            mountPath: /app
+      volumes:
+        - name: scripts
+          configMap:
+            name: dtp-test-scripts
+

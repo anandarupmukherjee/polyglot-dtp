@@ -1,0 +1,220 @@
+import React, { useEffect, useState } from 'react'
+
+const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:8084'
+const tokenKey = 'dtp_token'
+
+export default function App(){
+  const [email, setEmail] = useState('demo@example.com')
+  const [pw, setPw] = useState('demo12345')
+  const [status, setStatus] = useState('')
+  const [me, setMe] = useState(null)
+  const [admin, setAdmin] = useState({ users: [], twins: [], grants: [] })
+  const [newUser, setNewUser] = useState({ username: '', email: '', password: '' })
+  const [newTwin, setNewTwin] = useState({ name: '', ui_url: '', dtr_id: '' })
+  const [newGrant, setNewGrant] = useState({ username: '', twin_id: '' })
+  const [twins, setTwins] = useState([])
+  const [registryTwins, setRegistryTwins] = useState([])
+  const [services, setServices] = useState([])
+  const [scope, setScope] = useState('mine') // staff-only toggle
+  const [lastData, setLastData] = useState({})
+  const [health, setHealth] = useState({ ok: false, db: false, influx_configured: false, cron: false, ts: '' })
+
+  const login = async () => {
+    setStatus('Signing in...')
+    try {
+      const res = await fetch(`${apiBase}/api/token/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password: pw })
+      })
+      if(!res.ok){
+        const msg = await safeText(res)
+        setStatus(`Login failed${msg ? `: ${msg}` : ''}`)
+        return
+      }
+      const data = await res.json()
+      if(!data || !data.access){
+        setStatus('Login failed: no token')
+        return
+      }
+      localStorage.setItem(tokenKey, data.access)
+      setStatus('Signed in')
+      await Promise.all([loadMe(), loadTwins(), loadRegistryTwins(), loadServices(), loadLastData()])
+    } catch (err) {
+      setStatus('Login failed: network/CORS error')
+      // eslint-disable-next-line no-console
+      console.error('login error', err)
+    }
+  }
+
+  const safeText = async (res) => {
+    try { return await res.text() } catch { return '' }
+  }
+
+  const loadTwins = async () => {
+    const token = localStorage.getItem(tokenKey)
+    if(!token){ setTwins([]); return }
+    const res = await fetch(`${apiBase}/api/me/twins/`, { headers: { Authorization: `Bearer ${token}` } })
+    if(!res.ok){ setTwins([]); return }
+    const list = await res.json()
+    setTwins(list)
+  }
+
+  useEffect(() => { loadTwins() }, [])
+
+  const loadRegistryTwins = async () => {
+    const token = localStorage.getItem(tokenKey)
+    if(!token){ setRegistryTwins([]); return }
+    const s = (me && me.is_staff) ? scope : 'mine'
+    const res = await fetch(`${apiBase}/api/registry/twins?scope=${encodeURIComponent(s)}`, { headers: { Authorization: `Bearer ${token}` } })
+    if(!res.ok){ setRegistryTwins([]); return }
+    const list = await res.json()
+    setRegistryTwins(list)
+  }
+  const loadServices = async () => {
+    const token = localStorage.getItem(tokenKey)
+    if(!token){ setServices([]); return }
+    const s = (me && me.is_staff) ? scope : 'mine'
+    const res = await fetch(`${apiBase}/api/registry/services/list?scope=${encodeURIComponent(s)}`, { headers: { Authorization: `Bearer ${token}` } })
+    if(!res.ok){ setServices([]); return }
+    const list = await res.json()
+    setServices(list)
+  }
+  const loadLastData = async () => {
+    const token = localStorage.getItem(tokenKey)
+    if(!token){ setLastData({}); return }
+    const res = await fetch(`${apiBase}/api/last-data/my`, { headers: { Authorization: `Bearer ${token}` } })
+    if(!res.ok){ setLastData({}); return }
+    const data = await res.json()
+    const map = {}
+    ;(data.items||[]).forEach(it => { map[it.twin_id] = it.last_ts })
+    setLastData(map)
+  }
+  const loadMe = async () => {
+    const token = localStorage.getItem(tokenKey)
+    if(!token){ setMe(null); return }
+    const res = await fetch(`${apiBase}/api/me/`, { headers: { Authorization: `Bearer ${token}` } })
+    if(!res.ok){ setMe(null); return }
+    const info = await res.json()
+    setMe(info)
+    if(info.is_staff){ await loadAdmin() }
+    await Promise.all([loadRegistryTwins(), loadServices(), loadLastData()])
+  }
+
+  const loadAdmin = async () => {
+    const token = localStorage.getItem(tokenKey)
+    const [u,t,g] = await Promise.all([
+      fetch(`${apiBase}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.ok?r.json():[]),
+      fetch(`${apiBase}/api/admin/twins`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.ok?r.json():[]),
+      fetch(`${apiBase}/api/admin/grants`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.ok?r.json():[]),
+    ])
+    setAdmin({ users: u, twins: t, grants: g })
+  }
+
+  const createUser = async () => {
+    const token = localStorage.getItem(tokenKey)
+    const res = await fetch(`${apiBase}/api/admin/users`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(newUser) })
+    if(res.ok){ setNewUser({ username: '', email: '', password: '' }); await loadAdmin() }
+  }
+  const deleteUser = async (username) => {
+    if(!confirm(`Delete user ${username}?`)) return
+    const token = localStorage.getItem(tokenKey)
+    await fetch(`${apiBase}/api/admin/users`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ username }) })
+    await loadAdmin()
+  }
+  const createTwin = async () => {
+    const token = localStorage.getItem(tokenKey)
+    const res = await fetch(`${apiBase}/api/admin/twins`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(newTwin) })
+    if(res.ok){ setNewTwin({ name: '', ui_url: '', dtr_id: '' }); await loadAdmin() }
+  }
+
+  const loadHealth = async () => {
+    try{
+      const res = await fetch(`${apiBase}/api/healthz`)
+      if(!res.ok) return
+      const h = await res.json()
+      setHealth(h)
+    }catch(err){ /* ignore */ }
+  }
+  const deleteTwin = async (twin_id) => {
+    if(!confirm(`Delete twin ${twin_id}?`)) return
+    const token = localStorage.getItem(tokenKey)
+    await fetch(`${apiBase}/api/admin/twins`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ twin_id }) })
+    await loadAdmin()
+  }
+  const createGrant = async () => {
+    const token = localStorage.getItem(tokenKey)
+    const res = await fetch(`${apiBase}/api/admin/grants`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(newGrant) })
+    if(res.ok){ setNewGrant({ username: '', twin_id: '' }); await loadAdmin() }
+  }
+  const deleteGrant = async (username, twin_id) => {
+    if(!confirm(`Remove grant ${username} -> ${twin_id}?`)) return
+    const token = localStorage.getItem(tokenKey)
+    await fetch(`${apiBase}/api/admin/grants`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ username, twin_id }) })
+    await loadAdmin()
+  }
+
+  const [showApi, setShowApi] = useState(false)
+  useEffect(() => {
+    // open SSE for registry/portal updates (tenant is determined server-side)
+    const token = localStorage.getItem(tokenKey)
+    if(!token) return
+    const es = new EventSource(`${apiBase}/api/portal/stream`, { withCredentials: false })
+    es.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data)
+        if(msg && msg.type && msg.type.startsWith('twin.')){
+          loadRegistryTwins(); loadTwins(); loadLastData()
+        }
+      } catch {}
+    }
+    es.onerror = () => { try { es.close() } catch(e){} }
+    return () => { try { es.close() } catch(e){} }
+  }, [me])
+
+  useEffect(() => {
+    loadHealth()
+    const id = setInterval(loadHealth, 10000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div style={{ fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif', margin: '2rem' }}>
+      {me && (
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: '.75rem' }}>
+          <div style={{ fontWeight: 600 }}>DTP Portal</div>
+          <div style={{ fontSize: '.9em', color: '#334155' }}>
+            {me.username}
+            <button type='button' onClick={() => { localStorage.removeItem(tokenKey); setMe(null); setTwins([]); setRegistryTwins([]); setServices([]); setAdmin({ users: [], twins: [], grants: [] }); setStatus(''); }} style={{ marginLeft: '.75rem' }}>Logout</button>
+          </div>
+        </div>
+      )}
+      <h1 style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span>DTP Portal</span>
+        {me && (
+          <span style={{ fontSize: '.9em', color: '#334155' }}>
+            {me.username} <button type='button' onClick={() => { localStorage.removeItem(tokenKey); setMe(null); setTwins([]); setRegistryTwins([]); setServices([]); setAdmin({ users: [], twins: [], grants: [] }); setStatus(''); }}>Logout</button>
+          </span>
+        )}
+      </h1>
+      <div style={{ fontSize: '.9em', color: '#334155', padding: '.25rem 0' }}>
+        Backend: <code>{apiBase}</code> · Health: {health.ok ? 'OK' : 'Down'} · DB: {health.db ? 'OK' : 'ERR'} · Influx cfg: {health.influx_configured ? 'Yes' : 'No'} {health.cron ? '· cron ON' : ''} · Updated: {health.ts || '-'}
+      </div>
+      <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem', margin: '.5rem 0' }}>
+        <h2>Login</h2>
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder='email' />
+        <input type='password' value={pw} onChange={e => setPw(e.target.value)} placeholder='password' style={{ marginLeft: '.5rem' }} />
+        <button onClick={login} style={{ marginLeft: '.5rem' }}>Login</button>
+        <span style={{ marginLeft: '.5rem', color: '#2563eb' }}>{status}</span>
+      </div>
+      {me && (
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem', margin: '.5rem 0' }}>
+          <h2>Your Twins</h2>
+          {twins.length === 0 ? <em>No twins</em> : twins.map(t => {
+           // find matching DTR entry by dtr_id or api url
+           const match = registryTwins.find(rt => rt.twin_id === t.dtr_id) || registryTwins.find(rt => (rt.interfaces && rt.interfaces.api) === t.ui_url)
+           const ld = (match && lastData && lastData[match.twin_id]) || null
+           const last = ld ? new Date((ld.ts !== undefined ? ld.ts : ld)).toLocaleString() : null
+           return (
+             <div key={t.twin_id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem', margin: '.5rem 0' }}>
+               <strong>{t.name}</strong><br />
