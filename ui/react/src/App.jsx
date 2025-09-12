@@ -2,6 +2,23 @@
 
 const apiBase = import.meta.env.VITE_API_BASE || ''
 const tokenKey = 'dtp_token'
+const refreshKey = 'dtp_refresh'
+
+async function refreshAccessToken() {
+  const refresh = localStorage.getItem(refreshKey)
+  if (!refresh) return null
+  try{
+    const res = await fetch(`${apiBase}/api/token/refresh/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh })
+    })
+    if(!res.ok) return null
+    const data = await res.json().catch(()=>null)
+    if(data && data.access){ localStorage.setItem(tokenKey, data.access); return data.access }
+  }catch{}
+  return null
+}
 
 export default function App(){
   const [email, setEmail] = useState('demo@example.com')
@@ -37,6 +54,7 @@ export default function App(){
         setStatus('Login failed: no token')
         return
       }
+      if(data.refresh){ localStorage.setItem(refreshKey, data.refresh) }
       localStorage.setItem(tokenKey, data.access)
       setStatus('Signed in')
       await Promise.all([loadMe(), loadTwins(), loadRegistryTwins(), loadServices(), loadLastData()])
@@ -61,6 +79,15 @@ export default function App(){
   }
 
   useEffect(() => { loadTwins() }, [])
+  // Keep session alive with refresh token
+  useEffect(() => {
+    const id = setInterval(() => { refreshAccessToken().catch(()=>null) }, 9 * 60 * 1000)
+    // also try once on mount if no access but refresh exists
+    if(!localStorage.getItem(tokenKey) && localStorage.getItem(refreshKey)){
+      refreshAccessToken().then(()=>{ loadMe(); loadTwins(); loadRegistryTwins(); loadServices(); loadLastData() }).catch(()=>null)
+    }
+    return () => clearInterval(id)
+  }, [])
 
   const loadRegistryTwins = async () => {
     const token = localStorage.getItem(tokenKey)
@@ -87,7 +114,7 @@ export default function App(){
     if(!res.ok){ setLastData({}); return }
     const data = await res.json()
     const map = {}
-    ;(data.items||[]).forEach(it => { map[it.twin_id] = { ts: it.last_ts || null, source: it.source || null } })
+    ;((Array.isArray(data) ? data : (data.items||[]))||[]).forEach(it => { map[it.twin_id] = { ts: it.last_ts || null, source: it.source || null } })
     setLastData(map)
   }
   const loadMe = async () => {
@@ -200,7 +227,7 @@ export default function App(){
           <div style={{ fontWeight: 600 }}>DTP Portal</div>
           <div style={{ fontSize: '.9em', color: '#334155' }}>
             {me.username}
-            <button type='button' onClick={() => { localStorage.removeItem(tokenKey); setMe(null); setTwins([]); setRegistryTwins([]); setServices([]); setAdmin({ users: [], twins: [], grants: [] }); setStatus(''); }} style={{ marginLeft: '.75rem' }}>Logout</button>
+            <button type='button' onClick={() => { localStorage.removeItem(tokenKey); localStorage.removeItem(refreshKey); setMe(null); setTwins([]); setRegistryTwins([]); setServices([]); setAdmin({ users: [], twins: [], grants: [] }); setStatus(''); }} style={{ marginLeft: '.75rem' }}>Logout</button>
           </div>
         </div>
       )}
@@ -208,7 +235,7 @@ export default function App(){
         <span>DTP Portal</span>
         {me && (
           <span style={{ fontSize: '.9em', color: '#334155' }}>
-            {me.username} <button type='button' onClick={() => { localStorage.removeItem(tokenKey); setMe(null); setTwins([]); setRegistryTwins([]); setServices([]); setAdmin({ users: [], twins: [], grants: [] }); setStatus(''); }}>Logout</button>
+            {me.username} <button type='button' onClick={() => { localStorage.removeItem(tokenKey); localStorage.removeItem(refreshKey); setMe(null); setTwins([]); setRegistryTwins([]); setServices([]); setAdmin({ users: [], twins: [], grants: [] }); setStatus(''); }}>Logout</button>
           </span>
         )}
       </h1>
