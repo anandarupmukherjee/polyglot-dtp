@@ -18,6 +18,8 @@ services:
     volumes:
       - ./collector.py:/app/collector.py:ro
       - shared:/data
+    env_file:
+      - ../../.env
     command: ["bash","-lc","pip install --no-cache-dir influxdb-client paho-mqtt && python /app/collector.py"]
     environment:
       LOCAL_INFLUX_URL: http://influx_local:8086
@@ -32,6 +34,9 @@ services:
       MQTT_PASSWORD: ""
       MQTT_TOPIC: dtp/m5core2/telemetry
       MQTT_ALERT_TOPIC: dtp/m5core2/alerts
+      MQTT_TLS: "false"
+      MQTT_TLS_INSECURE: "false"
+      # MQTT_TLS_CA: /path/to/ca.crt  # optional
     depends_on: [influx_local]
     networks: [m5_net, main_net]
 
@@ -62,4 +67,3 @@ networks:
 volumes:
   influxdata: {}
   shared: {}
-

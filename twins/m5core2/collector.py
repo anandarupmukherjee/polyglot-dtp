@@ -5,6 +5,7 @@ from typing import Optional
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 import paho.mqtt.client as mqtt
+import ssl
 
 LOCAL_URL = os.getenv("LOCAL_INFLUX_URL", "http://influx_local:8086")
 LOCAL_ORG = os.getenv("LOCAL_ORG", "m5-org")
@@ -19,6 +20,9 @@ MQTT_USER = os.getenv("MQTT_USERNAME") or None
 MQTT_PASS = os.getenv("MQTT_PASSWORD") or None
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "dtp/m5core2/telemetry")
 MQTT_ALERT_TOPIC = os.getenv("MQTT_ALERT_TOPIC", "dtp/m5core2/alerts")
+MQTT_TLS = os.getenv("MQTT_TLS", "false").lower() in ("1","true","yes")
+MQTT_TLS_INSECURE = os.getenv("MQTT_TLS_INSECURE", "false").lower() in ("1","true","yes")
+MQTT_TLS_CA = os.getenv("MQTT_TLS_CA") or None  # optional CA bundle path
 
 
 def read_local_token() -> str:
@@ -110,6 +114,14 @@ def main():
     cli = mqtt.Client()
     if MQTT_USER:
         cli.username_pw_set(MQTT_USER, MQTT_PASS or "")
+    if MQTT_TLS:
+        if MQTT_TLS_CA and os.path.exists(MQTT_TLS_CA):
+            cli.tls_set(ca_certs=MQTT_TLS_CA, certfile=None, keyfile=None, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS, ciphers=None)
+        else:
+            # Use system CA store
+            cli.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
+        if MQTT_TLS_INSECURE:
+            cli.tls_insecure_set(True)
     cli.on_connect = on_connect
     cli.on_message = on_message
     cli.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
@@ -118,4 +130,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
