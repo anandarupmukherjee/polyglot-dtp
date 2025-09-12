@@ -81,7 +81,8 @@ def run():
                     raw = yaml.safe_load(txt)
                 except Exception:
                     import re
-                    txt2 = re.sub(r"(?m)^\s*@id\s*:\s*", "twin_id: ", txt)
+                    # rewrite @id: VALUE to twin_id: "VALUE" to handle colons
+                    txt2 = re.sub(r"(?m)^\s*@id\s*:\s*(.+)$", r"twin_id: \"\1\"", txt)
                     raw = yaml.safe_load(txt2)
             else:
                 raw = json.loads(cand.read_text(encoding="utf-8"))
