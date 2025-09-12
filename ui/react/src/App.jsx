@@ -386,7 +386,7 @@ export default function App(){
             <ul>
               {(admin.grants || []).map(g => (
                 <li key={`${g.user}::${g.twin_id}`}>
-                  {g.user} → {g.twin} <code>({g.twin_id})</code>
+                  {g.user} ? {g.twin} <code>({g.twin_id})</code>
                   <button onClick={() => deleteGrant(g.user, g.twin_id)} style={{ marginLeft: '.5rem' }}>Revoke</button>
                 </li>
               ))}
@@ -401,3 +401,4 @@ export default function App(){
 }
 
 const btnStyle = { display: 'inline-block', marginTop: '.5rem', background: '#2563eb', color: '#fff', padding: '.5rem .75rem', borderRadius: 6, textDecoration: 'none' }
+
