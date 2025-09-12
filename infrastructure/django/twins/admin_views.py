@@ -4,6 +4,38 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 from .models import TwinUI, AccessGrant
+import os
+import importlib.util
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def scan_repo(request):
+    """Trigger a one-shot scan of the repo twins directory and sync portal cards.
+
+    This mirrors what /app/scan_and_seed_twins.py does at container startup.
+    Returns { ok: true } on success, or { ok: false, error } on failure.
+    """
+    candidates = [
+        "/app/scan_and_seed_twins.py",
+        os.path.abspath(os.path.join(os.getcwd(), "scan_and_seed_twins.py")),
+    ]
+    last_err = None
+    for path in candidates:
+        try:
+            if not os.path.exists(path):
+                continue
+            spec = importlib.util.spec_from_file_location("scan_and_seed_twins", path)
+            mod = importlib.util.module_from_spec(spec)
+            assert spec and spec.loader
+            spec.loader.exec_module(mod)
+            if hasattr(mod, "run"):
+                mod.run()
+                return Response({"ok": True})
+        except Exception as e:
+            last_err = str(e)
+            break
+    return Response({"ok": False, "error": last_err or "scanner not found"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 from .serializers import TwinUISerializer
 
 

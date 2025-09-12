@@ -154,6 +154,21 @@ export default function App(){
     await loadAdmin()
   }
 
+  const scanTwins = async () => {
+    const token = localStorage.getItem(tokenKey)
+    setStatus('Scanning repo for twins...')
+    try{
+      const res = await fetch(`${apiBase}/api/admin/scan`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      if(res.ok){
+        setStatus('Scan complete')
+        await loadRegistryTwins(); await loadTwins(); await loadAdmin()
+      } else {
+        const err = await res.json().catch(()=>({}))
+        setStatus(`Scan failed${err?.error?': '+err.error:''}`)
+      }
+    }catch(e){ setStatus('Scan error') }
+  }
+
   const [showApi, setShowApi] = useState(false)
   useEffect(() => {
     // open SSE for registry/portal updates (tenant is determined server-side)
@@ -280,6 +295,10 @@ export default function App(){
       {me?.is_staff && (
         <div style={{ border: '2px solid #94a3b8', borderRadius: 8, padding: '1rem', margin: '.5rem 0', background: '#f8fafc' }}>
           <h2>Admin</h2>
+          <div style={{ marginBottom: '.5rem' }}>
+            <button onClick={scanTwins}>Scan repo for twins</button>
+            <span style={{ marginLeft: '.75rem', color: '#2563eb' }}>{status}</span>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <h3>Users</h3>
