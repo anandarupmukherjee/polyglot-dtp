@@ -13,6 +13,49 @@ from twins.models import Twin  # noqa: E402
 from twins.views import _sync_portal_card_for_twin as sync  # noqa: E402
 
 
+def _parse_yaml_lenient(txt: str) -> dict:
+    """Attempt to parse twin.yaml even if it contains unquoted tokens like '@id' or 'MQTT:...'.
+
+    Fallback parser extracts a minimal subset: twin_id/name/interfaces.api/interfaces.data_streams.
+    """
+    try:
+        return yaml.safe_load(txt) or {}
+    except Exception:
+        pass
+    data: dict = {}
+    twin_id = None
+    name = None
+    interfaces = {"data_streams": []}
+    section = None
+    for raw in txt.splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#'):
+            continue
+        if line.startswith('@id:') or line.lower().startswith('twin_id:'):
+            twin_id = line.split(':', 1)[1].strip().strip('"\'')
+        elif line.startswith('name:'):
+            name = line.split(':', 1)[1].strip()
+        elif line.startswith('interfaces:'):
+            section = 'interfaces'; continue
+        elif line.startswith('metadata:'):
+            section = 'metadata'; continue
+        elif section == 'interfaces' and line.startswith('api:'):
+            interfaces['api'] = line.split(':', 1)[1].strip()
+        elif section == 'interfaces' and (line.startswith('-') or line.startswith('data_streams:')):
+            if line.startswith('data_streams:'):
+                continue
+            val = line[1:].strip()
+            interfaces.setdefault('data_streams', []).append(val.strip('"\''))
+        elif not raw.startswith(' '):
+            section = None
+    if twin_id:
+        data['twin_id'] = twin_id
+    if name:
+        data['name'] = name
+    data['interfaces'] = interfaces
+    return data
+
+
 def infer_api(twin_dir: Path):
     for name in ("compose.yaml", "docker-compose.yaml", "compose.yml"):
         p = twin_dir / name
@@ -76,16 +119,7 @@ def run():
         try:
             if cand.suffix in (".yaml", ".yml"):
                 txt = cand.read_text(encoding="utf-8")
-                # Allow '@id:' keys by rewriting to 'twin_id:' for YAML parsers
-                try:
-                    raw = yaml.safe_load(txt)
-                except Exception:
-                    import re
-                    # rewrite @id: VALUE to twin_id: "VALUE" to handle colons
-                    txt2 = re.sub(r"(?m)^\s*@id\s*:\s*(.+)$", r"twin_id: \"\1\"", txt)
-                    # quote list scalar values that contain a colon (e.g., MQTT:topic)
-                    txt2 = re.sub(r"(?m)^(\s*-\s*)([^\"\n]*?:.+)$", r"\1\"\2\"", txt2)
-                    raw = yaml.safe_load(txt2)
+                raw = _parse_yaml_lenient(txt)
             else:
                 raw = json.loads(cand.read_text(encoding="utf-8"))
             payload = normalize(raw or {}, twin_dir)
