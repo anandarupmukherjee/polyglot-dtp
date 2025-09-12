@@ -3,6 +3,11 @@ import os
 import json
 from datetime import datetime, timedelta, timezone
 from influxdb_client import InfluxDBClient, Point, WriteOptions
+import socket
+try:
+    import paho.mqtt.client as mqtt  # type: ignore
+except Exception:
+    mqtt = None
 
 
 INFLUX_URL = os.getenv("LIFT_INFLUX_URL", "http://influx_local:8086")
@@ -16,6 +21,11 @@ CENTRAL_URL = os.getenv("CENTRAL_INFLUX_URL")
 CENTRAL_ORG = os.getenv("CENTRAL_INFLUX_ORG")
 CENTRAL_BUCKET = os.getenv("CENTRAL_INFLUX_BUCKET")
 CENTRAL_TOKEN = os.getenv("CENTRAL_INFLUX_TOKEN")
+
+# MQTT for manual alert publish (optional)
+MQTT_HOST = os.getenv("MQTT_BROKER_HOST", "mqtt")
+MQTT_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+MQTT_TOPIC = os.getenv("MQTT_ALERT_TOPIC", "dtp/lift/alerts")
 
 
 HTML_PAGE = """<!doctype html>
@@ -170,6 +180,26 @@ class API:
                     w2 = ic.write_api(write_options=WriteOptions(batch_size=1))
                     p2 = Point('alert').field('message','Manual trigger').field('value', 1.0).time(now)
                     w2.write(bucket=CENTRAL_BUCKET, record=p2)
+        except Exception:
+            pass
+        # Also publish an MQTT message so external subscribers (and gateway) can see it
+        try:
+            if mqtt is not None:
+                cli = mqtt.Client()
+                cli.connect(MQTT_HOST, MQTT_PORT, keepalive=15)
+                payload = {
+                    'type': 'vibration_alert',
+                    'message': 'Manual trigger',
+                    'value': 1.0,
+                    'ts': now.isoformat(),
+                    'source': 'lift-ui'
+                }
+                import json as _json
+                cli.publish(MQTT_TOPIC, _json.dumps(payload), qos=1)
+                try:
+                    cli.disconnect()
+                except Exception:
+                    pass
         except Exception:
             pass
         return {'ok': True}

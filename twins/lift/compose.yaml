@@ -43,7 +43,7 @@ services:
     volumes:
       - ./ui:/app
       - shared:/data
-    command: ["bash","-lc","pip install --no-cache-dir cherrypy influxdb-client && python /app/app.py"]
+    command: ["bash","-lc","pip install --no-cache-dir cherrypy influxdb-client paho-mqtt && python /app/app.py"]
     environment:
       LIFT_INFLUX_URL: http://influx_local:8086
       LIFT_INFLUX_ORG: lift-org
@@ -54,10 +54,13 @@ services:
       CENTRAL_INFLUX_BUCKET: ${INFLUX_BUCKET}
       CENTRAL_INFLUX_TOKEN: ${INFLUX_TOKEN}
       CONFIG_PATH: /data/config.json
+      MQTT_BROKER_HOST: mqtt.local
+      MQTT_BROKER_PORT: "1883"
+      MQTT_ALERT_TOPIC: dtp/lift/alerts
     ports:
       - "3001:8000"
     depends_on: [influx_local]
-    networks: [lift_net]
+    networks: [lift_net, main_net]
 
 networks:
   lift_net:
