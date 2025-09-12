@@ -18,7 +18,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app:ro
-      - shared:/app/shared
+      - shared:/data
     command: ["bash","-lc","pip install --no-cache-dir influxdb-client paho-mqtt && python /app/generator.py"]
     environment:
       LOCAL_INFLUX_URL: http://influx_local:8086
@@ -33,6 +33,7 @@ services:
       CENTRAL_INFLUX_ORG: ${INFLUX_ORG}
       CENTRAL_INFLUX_BUCKET: ${INFLUX_BUCKET}
       CENTRAL_INFLUX_TOKEN: ${INFLUX_TOKEN}
+      CONFIG_PATH: /data/config.json
     depends_on: [influx_local]
     networks: [lift_net, main_net]
 
@@ -41,7 +42,7 @@ services:
     working_dir: /app
     volumes:
       - ./ui:/app
-      - shared:/app/shared
+      - shared:/data
     command: ["bash","-lc","pip install --no-cache-dir cherrypy influxdb-client && python /app/app.py"]
     environment:
       LIFT_INFLUX_URL: http://influx_local:8086
@@ -52,6 +53,7 @@ services:
       CENTRAL_INFLUX_ORG: ${INFLUX_ORG}
       CENTRAL_INFLUX_BUCKET: ${INFLUX_BUCKET}
       CENTRAL_INFLUX_TOKEN: ${INFLUX_TOKEN}
+      CONFIG_PATH: /data/config.json
     ports:
       - "3001:8000"
     depends_on: [influx_local]

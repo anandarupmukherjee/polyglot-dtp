@@ -71,11 +71,7 @@ services:
     ports: ["1883:1883"]
     volumes:
       - ./infrastructure/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-    healthcheck:
-      test: ["CMD-SHELL","/bin/sh -c 'nc -z localhost 1883 || exit 1'"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
+    # Healthcheck removed: base image lacks 'nc'; port is exposed directly
     networks:
       default:
         aliases:
