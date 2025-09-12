@@ -43,4 +43,12 @@ if [[ -f twins/energy_hvac/compose.yaml ]]; then
   "${COMPOSE[@]}" -f twins/energy_hvac/compose.yaml "${EH_OPTS[@]}"
 fi
 
+# Also stop M5Core2 twin stack
+if [[ -f twins/m5core2/compose.yaml ]]; then
+  echo "Stopping M5Core2 twin stack (twins/m5core2)..."
+  M5_OPTS=(down)
+  if [[ "${1:-}" == "--clean" ]]; then M5_OPTS+=(-v); fi
+  "${COMPOSE[@]}" -f twins/m5core2/compose.yaml "${M5_OPTS[@]}"
+fi
+
 echo "Project stopped."

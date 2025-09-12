@@ -44,4 +44,10 @@ if [[ -f twins/energy_hvac/compose.yaml ]]; then
   "${COMPOSE[@]}" -f twins/energy_hvac/compose.yaml up -d ui generator
 fi
 
+# Start M5Core2 twin (collector + UI at 3003)
+if [[ -f twins/m5core2/compose.yaml ]]; then
+  echo "Starting M5Core2 twin (twins/m5core2)..."
+  "${COMPOSE[@]}" -f twins/m5core2/compose.yaml up -d collector ui
+fi
+
 echo "Project started. Use scripts/stop_project.sh to stop."

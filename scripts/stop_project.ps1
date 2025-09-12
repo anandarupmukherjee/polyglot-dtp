@@ -66,6 +66,18 @@ try {
     }
   }
 
+  # Also stop M5Core2 twin stack
+  if (Test-Path 'twins/m5core2/compose.yaml') {
+    Write-Host 'Stopping M5Core2 twin stack (twins/m5core2)...'
+    $m5Args = @('-f','twins/m5core2/compose.yaml','down')
+    if ($Clean) { $m5Args += '-v' }
+    if ($compose.Cmd -eq 'docker') {
+      & docker @($compose.Args + $m5Args)
+    } else {
+      & docker-compose @m5Args
+    }
+  }
+
   Write-Host 'Project stopped.'
 }
 finally {

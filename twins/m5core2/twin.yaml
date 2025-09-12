@@ -1,0 +1,16 @@
+@id: dt:M5Core2_001
+name: M5Stack Core2 (Vibration + Orientation)
+tenant: demo
+metadata:
+  domain: [Device, M5Stack]
+  status: instantiated
+  device_id: core2-001
+interfaces:
+  api: http://localhost:3003
+  data_streams:
+    - MQTT:dtp/m5core2/telemetry
+    - MQTT:dtp/m5core2/alerts
+dependencies:
+  static: []
+  dynamic: []
+

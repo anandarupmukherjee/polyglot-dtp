@@ -1,0 +1,65 @@
+services:
+  influx_local:
+    image: influxdb:2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: m5
+      DOCKER_INFLUXDB_INIT_PASSWORD: m5pass123
+      DOCKER_INFLUXDB_INIT_ORG: m5-org
+      DOCKER_INFLUXDB_INIT_BUCKET: m5
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: m5-token-123
+    volumes:
+      - influxdata:/var/lib/influxdb2
+    networks: [m5_net]
+
+  collector:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./collector.py:/app/collector.py:ro
+      - shared:/data
+    command: ["bash","-lc","pip install --no-cache-dir influxdb-client paho-mqtt && python /app/collector.py"]
+    environment:
+      LOCAL_INFLUX_URL: http://influx_local:8086
+      LOCAL_ORG: m5-org
+      LOCAL_BUCKET: m5
+      LOCAL_TOKEN_FILE: /var/lib/influxdb2/influx.token
+      CONFIG_PATH: /data/config.json
+      # HiveMQ / MQTT settings (override as needed)
+      MQTT_BROKER_HOST: mqtt.local
+      MQTT_BROKER_PORT: "1883"
+      MQTT_USERNAME: ""
+      MQTT_PASSWORD: ""
+      MQTT_TOPIC: dtp/m5core2/telemetry
+      MQTT_ALERT_TOPIC: dtp/m5core2/alerts
+    depends_on: [influx_local]
+    networks: [m5_net, main_net]
+
+  ui:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./ui/app.py:/app/app.py:ro
+      - shared:/data
+    command: ["bash","-lc","pip install --no-cache-dir cherrypy influxdb-client && python /app/app.py"]
+    environment:
+      M5_INFLUX_URL: http://influx_local:8086
+      M5_INFLUX_ORG: m5-org
+      M5_INFLUX_BUCKET: m5
+      M5_INFLUX_TOKEN: m5-token-123
+      CONFIG_PATH: /data/config.json
+    ports:
+      - "3003:8000"
+    depends_on: [influx_local]
+    networks: [m5_net]
+
+networks:
+  m5_net: {}
+  main_net:
+    external: true
+    name: dt_polyglot_db_default
+
+volumes:
+  influxdata: {}
+  shared: {}
+

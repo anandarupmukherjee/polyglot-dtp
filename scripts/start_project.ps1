@@ -68,6 +68,16 @@ try {
     }
   }
 
+  # Start M5Core2 twin (collector + UI on localhost:3003)
+  if (Test-Path 'twins/m5core2/compose.yaml') {
+    Write-Host 'Starting M5Core2 twin (twins/m5core2)...'
+    if ($compose.Cmd -eq 'docker') {
+      & docker @($compose.Args + @('-f','twins/m5core2/compose.yaml','up','-d','collector','ui'))
+    } else {
+      & docker-compose @('-f','twins/m5core2/compose.yaml','up','-d','collector','ui')
+    }
+  }
+
   Write-Host 'Project started. Use scripts/stop_project.ps1 to stop.'
 }
 finally {
