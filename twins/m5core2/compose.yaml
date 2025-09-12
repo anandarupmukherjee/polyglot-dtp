@@ -27,9 +27,9 @@ services:
       LOCAL_BUCKET: m5
       LOCAL_TOKEN_FILE: /var/lib/influxdb2/influx.token
       CONFIG_PATH: /data/config.json
-      # HiveMQ / MQTT settings (override as needed)
-      MQTT_BROKER_HOST: mqtt.local
-      MQTT_BROKER_PORT: "1883"
+      # HiveMQ / MQTT settings (default to public broker unless overridden in .env)
+      MQTT_BROKER_HOST: ${MQTT_BROKER_HOST}
+      MQTT_BROKER_PORT: ${MQTT_BROKER_PORT}
       MQTT_USERNAME: ""
       MQTT_PASSWORD: ""
       MQTT_TOPIC: dtp/m5core2/telemetry
