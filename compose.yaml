@@ -120,6 +120,8 @@ services:
       db:
         condition: service_healthy
     ports: ["8085:8000"]
+    volumes:
+      - ./twins:/app/twins_repo:ro
     restart: unless-stopped
 
   reactui:

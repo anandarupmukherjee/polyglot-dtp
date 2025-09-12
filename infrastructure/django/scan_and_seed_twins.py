@@ -56,7 +56,10 @@ def normalize(meta: dict, folder: Path):
 
 
 def run():
-    base = Path("/app/twins")
+    # Prefer mounted repo twins directory when available; fall back to app path
+    base = Path("/app/twins_repo")
+    if not base.exists():
+        base = Path("/app/twins")
     if not base.exists():
         return
     for twin_dir in base.iterdir():
