@@ -20,6 +20,22 @@ async function refreshAccessToken() {
   return null
 }
 
+async function authFetch(url, init = {}){
+  const t = localStorage.getItem(tokenKey)
+  const headers = new Headers(init.headers || {})
+  if(t){ headers.set('Authorization', `Bearer ${t}`) }
+  let res = await fetch(url, { ...init, headers })
+  if(res.status === 401){
+    const newTok = await refreshAccessToken()
+    if(newTok){
+      const headers2 = new Headers(init.headers || {})
+      headers2.set('Authorization', `Bearer ${newTok}`)
+      res = await fetch(url, { ...init, headers: headers2 })
+    }
+  }
+  return res
+}
+
 export default function App(){
   const [email, setEmail] = useState('demo@example.com')
   const [pw, setPw] = useState('demo12345')
@@ -72,7 +88,7 @@ export default function App(){
   const loadTwins = async () => {
     const token = localStorage.getItem(tokenKey)
     if(!token){ setTwins([]); return }
-    const res = await fetch(`${apiBase}/api/me/twins/`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await authFetch(`${apiBase}/api/me/twins/`)
     if(!res.ok){ setTwins([]); return }
     const list = await res.json()
     setTwins(list)
@@ -93,7 +109,7 @@ export default function App(){
     const token = localStorage.getItem(tokenKey)
     if(!token){ setRegistryTwins([]); return }
     const s = (me && me.is_staff) ? scope : 'mine'
-    const res = await fetch(`${apiBase}/api/registry/twins?scope=${encodeURIComponent(s)}`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await authFetch(`${apiBase}/api/registry/twins?scope=${encodeURIComponent(s)}`)
     if(!res.ok){ setRegistryTwins([]); return }
     const list = await res.json()
     setRegistryTwins(list)
@@ -102,7 +118,7 @@ export default function App(){
     const token = localStorage.getItem(tokenKey)
     if(!token){ setServices([]); return }
     const s = (me && me.is_staff) ? scope : 'mine'
-    const res = await fetch(`${apiBase}/api/registry/services/list?scope=${encodeURIComponent(s)}`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await authFetch(`${apiBase}/api/registry/services/list?scope=${encodeURIComponent(s)}`)
     if(!res.ok){ setServices([]); return }
     const list = await res.json()
     setServices(list)
@@ -110,7 +126,7 @@ export default function App(){
   const loadLastData = async () => {
     const token = localStorage.getItem(tokenKey)
     if(!token){ setLastData({}); return }
-    const res = await fetch(`${apiBase}/api/last-data/my`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await authFetch(`${apiBase}/api/last-data/my`)
     if(!res.ok){ setLastData({}); return }
     const data = await res.json()
     const map = {}
@@ -120,7 +136,7 @@ export default function App(){
   const loadMe = async () => {
     const token = localStorage.getItem(tokenKey)
     if(!token){ setMe(null); return }
-    const res = await fetch(`${apiBase}/api/me/`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await authFetch(`${apiBase}/api/me/`)
     if(!res.ok){ setMe(null); return }
     const info = await res.json()
     setMe(info)
@@ -129,29 +145,25 @@ export default function App(){
   }
 
   const loadAdmin = async () => {
-    const token = localStorage.getItem(tokenKey)
     const [u,t,g] = await Promise.all([
-      fetch(`${apiBase}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.ok?r.json():[]),
-      fetch(`${apiBase}/api/admin/twins`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.ok?r.json():[]),
-      fetch(`${apiBase}/api/admin/grants`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.ok?r.json():[]),
+      authFetch(`${apiBase}/api/admin/users`).then(r=>r.ok?r.json():[]),
+      authFetch(`${apiBase}/api/admin/twins`).then(r=>r.ok?r.json():[]),
+      authFetch(`${apiBase}/api/admin/grants`).then(r=>r.ok?r.json():[]),
     ])
     setAdmin({ users: u, twins: t, grants: g })
   }
 
   const createUser = async () => {
-    const token = localStorage.getItem(tokenKey)
-    const res = await fetch(`${apiBase}/api/admin/users`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(newUser) })
+    const res = await authFetch(`${apiBase}/api/admin/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newUser) })
     if(res.ok){ setNewUser({ username: '', email: '', password: '' }); await loadAdmin() }
   }
   const deleteUser = async (username) => {
     if(!confirm(`Delete user ${username}?`)) return
-    const token = localStorage.getItem(tokenKey)
-    await fetch(`${apiBase}/api/admin/users`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ username }) })
+    await authFetch(`${apiBase}/api/admin/users`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) })
     await loadAdmin()
   }
   const createTwin = async () => {
-    const token = localStorage.getItem(tokenKey)
-    const res = await fetch(`${apiBase}/api/admin/twins`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(newTwin) })
+    const res = await authFetch(`${apiBase}/api/admin/twins`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTwin) })
     if(res.ok){ setNewTwin({ name: '', ui_url: '', dtr_id: '' }); await loadAdmin() }
   }
 
@@ -165,19 +177,16 @@ export default function App(){
   }
   const deleteTwin = async (twin_id) => {
     if(!confirm(`Delete twin ${twin_id}?`)) return
-    const token = localStorage.getItem(tokenKey)
-    await fetch(`${apiBase}/api/admin/twins`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ twin_id }) })
+    await authFetch(`${apiBase}/api/admin/twins`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ twin_id }) })
     await loadAdmin()
   }
   const createGrant = async () => {
-    const token = localStorage.getItem(tokenKey)
-    const res = await fetch(`${apiBase}/api/admin/grants`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(newGrant) })
+    const res = await authFetch(`${apiBase}/api/admin/grants`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newGrant) })
     if(res.ok){ setNewGrant({ username: '', twin_id: '' }); await loadAdmin() }
   }
   const deleteGrant = async (username, twin_id) => {
     if(!confirm(`Remove grant ${username} -> ${twin_id}?`)) return
-    const token = localStorage.getItem(tokenKey)
-    await fetch(`${apiBase}/api/admin/grants`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ username, twin_id }) })
+    await authFetch(`${apiBase}/api/admin/grants`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, twin_id }) })
     await loadAdmin()
   }
 
@@ -185,7 +194,7 @@ export default function App(){
     const token = localStorage.getItem(tokenKey)
     setStatus('Scanning repo for twins...')
     try{
-      const res = await fetch(`${apiBase}/api/admin/scan`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      const res = await authFetch(`${apiBase}/api/admin/scan`, { method: 'POST' })
       if(res.ok){
         setStatus('Scan complete')
         await loadRegistryTwins(); await loadTwins(); await loadAdmin()
