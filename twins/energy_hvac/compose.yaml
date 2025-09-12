@@ -58,7 +58,7 @@ networks:
   energy_net: {}
   main_net:
     external: true
-    name: polyglot-dtp_default
+    name: dt_polyglot_db_default
 
 volumes:
   influxdata: {}

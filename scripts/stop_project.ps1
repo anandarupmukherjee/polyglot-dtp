@@ -54,6 +54,18 @@ try {
     }
   }
 
+  # Also stop Energy & HVAC twin stack
+  if (Test-Path 'twins/energy_hvac/compose.yaml') {
+    Write-Host 'Stopping Energy & HVAC twin stack (twins/energy_hvac)...'
+    $ehArgs = @('-f','twins/energy_hvac/compose.yaml','down')
+    if ($Clean) { $ehArgs += '-v' }
+    if ($compose.Cmd -eq 'docker') {
+      & docker @($compose.Args + $ehArgs)
+    } else {
+      & docker-compose @ehArgs
+    }
+  }
+
   Write-Host 'Project stopped.'
 }
 finally {

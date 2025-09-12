@@ -58,6 +58,16 @@ try {
     }
   }
 
+  # Start Energy & HVAC twin UI (on localhost:3002)
+  if (Test-Path 'twins/energy_hvac/compose.yaml') {
+    Write-Host 'Starting Energy & HVAC twin UI (twins/energy_hvac)...'
+    if ($compose.Cmd -eq 'docker') {
+      & docker @($compose.Args + @('-f','twins/energy_hvac/compose.yaml','up','-d','ui','generator'))
+    } else {
+      & docker-compose @('-f','twins/energy_hvac/compose.yaml','up','-d','ui','generator')
+    }
+  }
+
   Write-Host 'Project started. Use scripts/stop_project.ps1 to stop.'
 }
 finally {

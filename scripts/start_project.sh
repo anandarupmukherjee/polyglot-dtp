@@ -38,4 +38,10 @@ if [[ -f twins/lift/compose.yaml ]]; then
   "${COMPOSE[@]}" -f twins/lift/compose.yaml up -d ui generator
 fi
 
+# Start Energy & HVAC twin UI (localhost:3002)
+if [[ -f twins/energy_hvac/compose.yaml ]]; then
+  echo "Starting Energy & HVAC twin UI (twins/energy_hvac)..."
+  "${COMPOSE[@]}" -f twins/energy_hvac/compose.yaml up -d ui generator
+fi
+
 echo "Project started. Use scripts/stop_project.sh to stop."
