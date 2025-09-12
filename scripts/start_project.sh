@@ -31,5 +31,11 @@ if [[ "${1:-}" == "--build" ]]; then
 fi
 
 "${COMPOSE[@]}" "${OPTS[@]}"
-echo "Project started. Use scripts/stop_project.sh to stop."
 
+# Also start example Lift twin UI (localhost:3001) and generator
+if [[ -f twins/lift/compose.yaml ]]; then
+  echo "Starting Lift twin UI (twins/lift)..."
+  "${COMPOSE[@]}" -f twins/lift/compose.yaml up -d ui generator
+fi
+
+echo "Project started. Use scripts/stop_project.sh to stop."

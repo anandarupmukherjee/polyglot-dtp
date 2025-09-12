@@ -26,5 +26,13 @@ if [[ "${1:-}" == "--clean" ]]; then
 fi
 
 "${COMPOSE[@]}" "${OPTS[@]}"
-echo "Project stopped."
 
+# Also stop Lift twin stack
+if [[ -f twins/lift/compose.yaml ]]; then
+  echo "Stopping Lift twin stack (twins/lift)..."
+  LIFT_OPTS=(down)
+  if [[ "${1:-}" == "--clean" ]]; then LIFT_OPTS+=(-v); fi
+  "${COMPOSE[@]}" -f twins/lift/compose.yaml "${LIFT_OPTS[@]}"
+fi
+
+echo "Project stopped."

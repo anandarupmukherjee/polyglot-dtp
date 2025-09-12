@@ -48,9 +48,18 @@ try {
     & docker-compose @args
   }
 
+  # Also start example Lift twin UI (on localhost:3001)
+  if (Test-Path 'twins/lift/compose.yaml') {
+    Write-Host 'Starting Lift twin UI (twins/lift)...'
+    if ($compose.Cmd -eq 'docker') {
+      & docker @($compose.Args + @('-f','twins/lift/compose.yaml','up','-d','ui','generator'))
+    } else {
+      & docker-compose @('-f','twins/lift/compose.yaml','up','-d','ui','generator')
+    }
+  }
+
   Write-Host 'Project started. Use scripts/stop_project.ps1 to stop.'
 }
 finally {
   Pop-Location
 }
-

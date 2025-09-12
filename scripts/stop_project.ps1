@@ -42,9 +42,20 @@ try {
     & docker-compose @args
   }
 
+  # Also stop Lift twin stack
+  if (Test-Path 'twins/lift/compose.yaml') {
+    Write-Host 'Stopping Lift twin stack (twins/lift)...'
+    $liftArgs = @('-f','twins/lift/compose.yaml','down')
+    if ($Clean) { $liftArgs += '-v' }
+    if ($compose.Cmd -eq 'docker') {
+      & docker @($compose.Args + $liftArgs)
+    } else {
+      & docker-compose @liftArgs
+    }
+  }
+
   Write-Host 'Project stopped.'
 }
 finally {
   Pop-Location
 }
-
