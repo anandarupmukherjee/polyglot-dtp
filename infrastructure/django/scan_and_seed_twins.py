@@ -83,6 +83,8 @@ def run():
                     import re
                     # rewrite @id: VALUE to twin_id: "VALUE" to handle colons
                     txt2 = re.sub(r"(?m)^\s*@id\s*:\s*(.+)$", r"twin_id: \"\1\"", txt)
+                    # quote list scalar values that contain a colon (e.g., MQTT:topic)
+                    txt2 = re.sub(r"(?m)^(\s*-\s*)([^\"\n]*?:.+)$", r"\1\"\2\"", txt2)
                     raw = yaml.safe_load(txt2)
             else:
                 raw = json.loads(cand.read_text(encoding="utf-8"))
