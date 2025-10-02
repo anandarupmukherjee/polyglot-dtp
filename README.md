@@ -1,11 +1,190 @@
-# Modular Twin Registry & Twin Discovery (Polyglot DTP)
-Lightweight, docker-first testbed for a modular Digital Twin Platform featuring:
-- Registry-driven orchestration (DTR + Service Registry)
-- Auto-discovery of twins by scanning `twins/**/twin.yaml`
-- Per-twin local stacks (e.g., Lift, Energy/HVAC) with UI + generator
-- Central portal (React) with auth, admin (users/twins/grants), and live status badges
-- Same-origin API via Nginx proxy for easy local dev
-Spin up Postgres/Timescale, Neo4j, InfluxDB 2, and MinIO. Run one script that writes and reads from each to prove the wiring.
+## Twin Ontology & Platform Features
+
+This project implements a **polyglot Digital Twin Platform (DTP)** with the following principles:
+
+- Twins are defined declaratively in `twins/**/twin.yaml`.
+- Each twin specifies its identity, tenant, metadata, interfaces (API + streams), and dependencies.
+- A central Django registry and portal auto-discover and register twins.
+- Data flows through multiple back-ends: MQTT, TimescaleDB, InfluxDB, Neo4j, MinIO.
+- Per-twin stacks (Lift, Energy/HVAC, M5Core2) provide local UI and simulation.
+
+---
+
+### 1. Twin Specification Ontology
+
+```mermaid
+classDiagram
+  class Twin {
+    +string id
+    +string name
+    +string tenant
+    +Map metadata
+    +Interfaces interfaces
+    +Dependencies dependencies
+  }
+
+  class Interfaces {
+    +string api
+    +string[] data_streams
+  }
+
+  class Dependencies {
+    +string[] static
+    +string[] dynamic
+  }
+
+  class Metadata {
+    +string[] domain
+    +string status
+    +string device_id
+    +string lift_id
+  }
+
+  Twin --> Interfaces : has
+  Twin --> Dependencies : declares
+  Twin --> Metadata : carries
+```
+
+```mermaid
+erDiagram
+  TWIN {
+    string id
+    string name
+    string tenant
+    json metadata
+    json interfaces
+    json dependencies
+  }
+
+  TWINUI {
+    uuid twin_id
+    string name
+    string ui_url
+    string dtr_id
+  }
+
+  PORTALEVENT {
+    bigint id
+    string tenant
+    string etype
+    json payload
+    datetime created_at
+  }
+
+  STREAM {
+    string twin_id
+    string kind
+    string topic
+  }
+
+  TWIN ||--o{ STREAM : exposes
+  TWIN ||--o{ TWINUI : represented_by
+  TWIN ||--o{ PORTALEVENT : emits_updates
+```
+
+### TWIN Registration
+
+```mermaid
+erDiagram
+  TWINSPEC {
+    string path
+    string id
+    string name
+    string tenant
+    json metadata
+    json interfaces
+    json dependencies
+  }
+
+  SCANNER {
+    string tool
+  }
+
+  SEEDER {
+    string tool
+  }
+
+  TWIN {
+    string id
+    string name
+    string tenant
+    json metadata
+    json interfaces
+    json dependencies
+  }
+
+  TWINUI {
+    uuid twin_id
+    string name
+    string ui_url
+    string dtr_id
+  }
+
+  PORTALEVENT {
+    bigint id
+    string tenant
+    string etype
+    json payload
+    datetime created_at
+  }
+
+  TWINSPEC ||--o{ SCANNER : discovered_by
+  SCANNER ||--o{ SEEDER : feeds
+  SEEDER ||--o{ TWIN : creates_or_updates
+  TWIN ||--o{ TWINUI : creates_or_syncs
+  TWIN ||--o{ PORTALEVENT : emits
+
+```
+
+### Information update ERD (status/config changes flowing to portal)
+
+```mermaid
+erDiagram
+  TWIN {
+    string id
+    string name
+    string tenant
+    json metadata
+    json interfaces
+    json dependencies
+  }
+
+  UPDATECMD {
+    string source
+    string kind
+    json patch
+    datetime ts
+  }
+
+  TWINUI {
+    uuid twin_id
+    string name
+    string ui_url
+    string dtr_id
+  }
+
+  PORTALEVENT {
+    bigint id
+    string tenant
+    string etype
+    json payload
+    datetime created_at
+  }
+
+  STREAM {
+    string twin_id
+    string kind
+    string topic
+  }
+
+  UPDATECMD ||--o{ TWIN : applies_to
+  TWIN ||--o{ TWINUI : syncs_card
+  TWIN ||--o{ PORTALEVENT : logs_change
+  TWIN ||--o{ STREAM : exposes
+
+```
+
+
 
 ## Run locally
 
