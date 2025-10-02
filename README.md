@@ -184,7 +184,88 @@ erDiagram
 
 ```
 
+### Twin registration flow
+```mermaid
+flowchart TD
+  A[Dev adds or edits twins/**/twin.yaml] --> B[scan_twins.py finds twin.yaml files]
+  B --> C[register_twins.py / scan_and_seed_twins.py parses YAML]
+  C --> D{Twin exists in registry?}
+  D -- No --> E[Create Twin record]
+  D -- Yes --> F[Update Twin record]
+  E --> G[Create/Sync TwinUI card]
+  F --> G[Create/Sync TwinUI card]
+  G --> H[Emit PortalEvent: twin.update]
+  H --> I[Portal listens and refreshes UI badges]
+```
 
+### Twin information update flow
+```mermaid
+flowchart TD
+  A[Change source: YAML edit, service change, or status signal] --> B[Update command or rescan]
+  B --> C[Apply change to Twin in registry]
+  C --> D[Sync TwinUI card fields if needed]
+  C --> E[Emit PortalEvent: twin.update or service.update]
+  D --> F[Portal consumes events]
+  E --> F[Portal consumes events]
+  F --> G[UI reflects latest name, streams, status]
+
+```
+
+### Twin registration — end-to-end
+
+```mermaid
+sequenceDiagram
+  participant Dev as Developer
+  participant FS as Repo (twins/**/twin.yaml)
+  participant Scan as scan_twins.py
+  participant Seed as register_twins.py / scan_and_seed_twins.py
+  participant API as Django Twins API
+  participant DB as DB (Twin, TwinUI, PortalEvent)
+  participant Portal as Portal UI (React)
+
+  Dev->>FS: Add or edit twin.yaml
+  Scan->>FS: rglob twin.yaml
+  Scan-->>Seed: List of twin specs
+  Seed->>API: Create/Update Twin from spec
+  API->>DB: Upsert Twin
+  API->>DB: Upsert TwinUI
+  API->>DB: Insert PortalEvent (twin.update)
+  DB-->>API: OK
+  API-->>Seed: 201/200
+
+  Note over Portal,API: Portal listens via SSE/poll
+  Portal->>API: Get recent PortalEvents
+  API-->>Portal: twin.update payload
+  Portal->>Portal: Refresh cards/badges
+
+```
+### Twin information update — rescan or runtime change
+
+```mermaid
+sequenceDiagram
+  participant Source as Change Source (YAML edit / service signal)
+  participant Scan as Rescan or UpdateCmd
+  participant API as Django Twins API
+  participant DB as DB (Twin, TwinUI, PortalEvent)
+  participant Portal as Portal UI (React)
+
+  Source-->>Scan: Change detected
+  alt YAML change
+    Scan->>API: Create/Update Twin from spec
+  else Runtime status/config change
+    Scan->>API: PATCH Twin fields or Service status
+  end
+
+  API->>DB: Update Twin record
+  API->>DB: Sync TwinUI if needed
+  API->>DB: Insert PortalEvent (twin.update or service.update)
+  DB-->>API: OK
+  Note over Portal,API: Portal consumes events
+  Portal->>API: Fetch events (SSE/poll)
+  API-->>Portal: Event payload
+  Portal->>Portal: Update UI state
+
+```
 
 ## Run locally
 
