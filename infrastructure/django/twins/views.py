@@ -527,6 +527,7 @@ def portal_stream(request: HttpRequest):
                 yield f"data: {data}\n\n"
                 last_ts = ev.created_at
             time.sleep(1)
+
 def _sync_portal_card_for_twin(tw: Twin):
     """Ensure a TwinUI portal card exists and is linked to this DTR twin.
 
@@ -541,15 +542,37 @@ def _sync_portal_card_for_twin(tw: Twin):
         api = None
         if isinstance(tw.interfaces, dict):
             api = tw.interfaces.get("api")
-        ui, created = TwinUI.objects.get_or_create(dtr_id=tw.twin_id, defaults={
-            "name": name,
-            "ui_url": api or ""
-        })
         changed = False
+        duplicates = []
+        with transaction.atomic():
+            matches = list(TwinUI.objects.select_for_update().filter(dtr_id=tw.twin_id))
+            if matches:
+                ui = matches[0]
+                duplicates = matches[1:]
+            else:
+                fallback = TwinUI.objects.select_for_update().filter(name=name, dtr_id__isnull=True).first()
+                if fallback:
+                    ui = fallback
+                    if ui.dtr_id != tw.twin_id:
+                        ui.dtr_id = tw.twin_id
+                        ui.save(update_fields=["dtr_id"])
+                else:
+                    ui = TwinUI.objects.create(
+                        dtr_id=tw.twin_id,
+                        name=name,
+                        ui_url=api or ""
+                    )
+            if duplicates:
+                dup_ids = [dup.pk for dup in duplicates]
+                AccessGrant.objects.filter(twin_id__in=dup_ids).update(twin=ui)
+                TwinUI.objects.filter(pk__in=dup_ids).delete()
+        ui.refresh_from_db()
         if ui.name != name:
-            ui.name = name; changed = True
+            ui.name = name
+            changed = True
         if api and ui.ui_url != api:
-            ui.ui_url = api; changed = True
+            ui.ui_url = api
+            changed = True
         if changed:
             ui.save()
         # bootstrap grants: if none exist for this card, grant all users
@@ -560,6 +583,7 @@ def _sync_portal_card_for_twin(tw: Twin):
     except Exception:
         # do not break registry flow on portal sync errors
         pass
+
 
 
 def _timescale_last_ts_for_signal(signal_name: str):
