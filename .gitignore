@@ -6,4 +6,6 @@ __pycache__/
 .envrc
 .DS_Store
 .sqlitedb
+.example
+kube-env
 EOF
