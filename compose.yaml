@@ -97,7 +97,7 @@ services:
     image: nginx:alpine
     volumes:
       - ./ui/portal:/usr/share/nginx/html:ro
-    ports: ["8080:80"]
+    ports: ["${PORTAL_HOST_PORT:-8080}:80"]
     restart: unless-stopped
 
   django:
@@ -123,6 +123,12 @@ services:
     volumes:
       - ./twins:/app/twins_repo:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/healthz', timeout=3)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   reactui:
     build:
@@ -131,7 +137,24 @@ services:
         # Use same-origin; Nginx proxies /api -> django
         VITE_API_BASE: ""
     ports: ["8083:80"]
+    links:
+      - django
     restart: unless-stopped
+    depends_on:
+      django:
+        condition: service_healthy
+
+  node_red:
+    image: nodered/node-red:latest
+    ports: ["1880:1880"]
+    volumes:
+      - "nodereddata:/data"
+      - "./services/node-red/library:/data/lib/flows"
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - nodered.local
 
   alert_gateway:
     build: ./data-collection/alert_gateway
@@ -164,3 +187,5 @@ volumes:
   neo4jdata:
   influxdata:
   miniodata:
+  nodereddata:
+

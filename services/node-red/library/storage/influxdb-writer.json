@@ -1,0 +1,88 @@
+[
+  {
+    "id": "function_influx_prepare",
+    "type": "function",
+    "z": "template",
+    "name": "Shape fields & tags",
+    "func": "const measurement = flow.get('influxMeasurement') || 'telemetry';\nconst payload = typeof msg.payload === 'object' ? msg.payload : { value: msg.payload };\nconst fields = {};\nif (typeof payload.value !== 'undefined') { fields.value = Number(payload.value); }\nif (payload.celsius !== undefined) { fields.celsius = Number(payload.celsius); }\nif (payload.roll !== undefined) { fields.roll = Number(payload.roll); }\nif (payload.pitch !== undefined) { fields.pitch = Number(payload.pitch); }\nif (payload.yaw !== undefined) { fields.yaw = Number(payload.yaw); }\nif (payload.acceleration && typeof payload.acceleration === 'object') {\n  const acc = payload.acceleration;\n  if (acc.x !== undefined) { fields.accel_x = Number(acc.x); }\n  if (acc.y !== undefined) { fields.accel_y = Number(acc.y); }\n  if (acc.z !== undefined) { fields.accel_z = Number(acc.z); }\n}\nif (payload.fields && typeof payload.fields === 'object') {\n  Object.assign(fields, payload.fields);\n}\nconst tags = Object.assign({ assetId: payload.assetId || 'asset-001' }, payload.tags || {});\nmsg.measurement = measurement;\nmsg.tags = tags;\nmsg.payload = fields;\nmsg.timestamp = payload.timestamp || new Date().toISOString();\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "flow.set('influxMeasurement', flow.get('influxMeasurement') || 'telemetry');",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 140,
+    "wires": [
+      [
+        "influx_write",
+        "debug_influx_preview"
+      ]
+    ]
+  },
+  {
+    "id": "link_influx_source",
+    "type": "link in",
+    "z": "template",
+    "name": "Telemetry feed",
+    "links": [],
+    "x": 130,
+    "y": 140,
+    "wires": [
+      [
+        "function_influx_prepare"
+      ]
+    ]
+  },
+  {
+    "id": "influx_write",
+    "type": "influxdb out",
+    "z": "template",
+    "influxdb": "influx_config",
+    "name": "Write to InfluxDB",
+    "measurement": "",
+    "precision": "",
+    "retentionPolicy": "",
+    "database": "",
+    "precisionV18Flux": "ns",
+    "retentionPolicyV18Flux": "",
+    "org": "",
+    "bucket": "",
+    "x": 620,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "debug_influx_preview",
+    "type": "debug",
+    "z": "template",
+    "name": "Write preview",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "{measurement: msg.measurement, tags: msg.tags, fields: msg.payload}",
+    "targetType": "jsonata",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 640,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "influx_config",
+    "type": "influxdb",
+    "hostname": "influx",
+    "port": "8086",
+    "protocol": "http",
+    "database": "",
+    "name": "Local InfluxDB",
+    "usetls": false,
+    "tls": "",
+    "influxdbVersion": "2.0",
+    "url": "http://influx:8086",
+    "timeout": "60000",
+    "rejectUnauthorized": false,
+    "credentials": {},
+    "v18": false
+  }
+]

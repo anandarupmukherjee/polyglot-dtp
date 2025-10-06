@@ -1,0 +1,64 @@
+[
+  {
+    "id": "link_sql_source",
+    "type": "link in",
+    "z": "template",
+    "name": "Telemetry feed",
+    "links": [],
+    "x": 120,
+    "y": 140,
+    "wires": [
+      [
+        "function_prepare_sql"
+      ]
+    ]
+  },
+  {
+    "id": "function_prepare_sql",
+    "type": "function",
+    "z": "template",
+    "name": "Create INSERT",
+    "func": "const table = flow.get('sqlTable') || 'telemetry_raw';\nconst columns = flow.get('sqlColumns') || ['asset_id', 'timestamp', 'payload'];\nconst payload = typeof msg.payload === 'object' ? msg.payload : { value: msg.payload };\nconst assetId = payload.assetId || msg.assetId || 'asset-001';\nconst timestamp = payload.timestamp || new Date().toISOString();\nconst body = JSON.stringify(payload);\nmsg.topic = `INSERT INTO ${table} (${columns.join(',')}) VALUES ($1,$2,$3);`;\nmsg.payload = [assetId, timestamp, body];\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "flow.set('sqlTable', flow.get('sqlTable') || 'telemetry_raw');\nflow.set('sqlColumns', flow.get('sqlColumns') || ['asset_id','timestamp','payload']);",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 140,
+    "wires": [
+      [
+        "link_sql_out",
+        "debug_sql"
+      ]
+    ]
+  },
+  {
+    "id": "link_sql_out",
+    "type": "link out",
+    "z": "template",
+    "name": "Execute with DB node",
+    "mode": "link",
+    "links": [],
+    "x": 640,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "debug_sql",
+    "type": "debug",
+    "z": "template",
+    "name": "SQL preview",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "{query: msg.topic, params: msg.payload}",
+    "targetType": "jsonata",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 650,
+    "y": 180,
+    "wires": []
+  }
+]

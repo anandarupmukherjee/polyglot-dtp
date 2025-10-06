@@ -1,0 +1,127 @@
+[
+  {
+    "id": "inject_vibration_tick",
+    "type": "inject",
+    "z": "template",
+    "name": "Tick every second",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "1",
+    "once": true,
+    "onceDelay": "0.1",
+    "topic": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "function_vibration_payload"
+      ]
+    ]
+  },
+  {
+    "id": "function_vibration_payload",
+    "type": "function",
+    "z": "template",
+    "name": "Synthetic vibration payload",
+    "func": "const assetId = flow.get('assetId') || 'asset-001';\nconst amplitude = Number(flow.get('vibrationAmplitude') || 0.35);\nconst bias = Number(flow.get('vibrationBias') || 9.81);\nconst frequency = Number(flow.get('vibrationFrequency') || 50);\nconst t = Date.now() / 1000;\nconst noise = () => (Math.random() - 0.5) * amplitude;\nmsg.payload = {\n    assetId,\n    timestamp: new Date().toISOString(),\n    acceleration: {\n        x: bias + Math.sin(2 * Math.PI * frequency * t) * amplitude + noise(),\n        y: bias + Math.cos(2 * Math.PI * frequency * t) * amplitude + noise(),\n        z: bias + noise()\n    }\n};\nreturn msg;",
+    "initialize": "if (!flow.get('assetId')) {\n  flow.set('assetId', 'asset-001');\n  flow.set('vibrationAmplitude', 0.35);\n  flow.set('vibrationBias', 9.81);\n  flow.set('vibrationFrequency', 50);\n}",
+    "finalize": "",
+    "outputs": 1,
+    "noerr": 0,
+    "libs": [],
+    "x": 470,
+    "y": 120,
+    "wires": [
+      [
+        "change_vibration_topic",
+        "debug_vibration_preview"
+      ]
+    ]
+  },
+  {
+    "id": "change_vibration_topic",
+    "type": "change",
+    "z": "template",
+    "name": "Build MQTT topic",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "\"sensors/vibration/\" & msg.payload.assetId",
+        "tot": "jsonata"
+      }
+    ],
+    "x": 770,
+    "y": 110,
+    "wires": [
+      [
+        "mqtt_vibration_publish"
+      ]
+    ]
+  },
+  {
+    "id": "debug_vibration_preview",
+    "type": "debug",
+    "z": "template",
+    "name": "Preview payload",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 770,
+    "y": 170,
+    "wires": []
+  },
+  {
+    "id": "mqtt_vibration_publish",
+    "type": "mqtt out",
+    "z": "template",
+    "name": "Publish vibration",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correlationData": "",
+    "expiry": "",
+    "broker": "mqtt_broker_local",
+    "x": 1030,
+    "y": 110,
+    "wires": []
+  },
+  {
+    "id": "mqtt_broker_local",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "mqtt",
+    "port": "1883",
+    "clientid": "",
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "sessionExpiry": ""
+  }
+]

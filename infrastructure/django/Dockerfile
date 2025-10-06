@@ -12,6 +12,7 @@ COPY manage.py /app/manage.py
 COPY portalbackend /app/portalbackend
 COPY twins /app/twins
 COPY scan_and_seed_twins.py /app/scan_and_seed_twins.py
+COPY register_services.py /app/infrastructure/django/register_services.py
 
 EXPOSE 8000
 COPY entrypoint.sh /app/entrypoint.sh

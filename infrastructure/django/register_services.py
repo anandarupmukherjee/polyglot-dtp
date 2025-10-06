@@ -1,6 +1,6 @@
-import os
 from pathlib import Path
 import sys
+import os
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 if str(BASE_DIR) not in sys.path:
@@ -11,7 +11,8 @@ import django
 
 django.setup()
 
-from twins.models import Twin, TwinUI, Service
+from django.contrib.auth.models import User
+from twins.models import Twin, TwinUI, Service, ServiceAccessGrant
 
 CORE_SERVICES = [
     {"name": "Django Admin", "interfaces": {"api": "http://localhost:8085/admin", "public": True}, "category": "UI", "health": "http://localhost:8085/api/healthz"},
@@ -22,7 +23,15 @@ CORE_SERVICES = [
 ]
 
 
+def ensure_service_grant(service: Service):
+    if ServiceAccessGrant.objects.filter(service=service).exists():
+        return
+    for user in User.objects.all():
+        ServiceAccessGrant.objects.get_or_create(user=user, service=service)
+
+
 def run():
+    from twins.models import Twin, TwinUI, Service
     Twin.objects.filter(twin_id="dt:TwinComposer_001").delete()
     TwinUI.objects.filter(name="Twin Composer").delete()
     for svc in CORE_SERVICES:
@@ -33,7 +42,8 @@ def run():
             "health": svc.get("health"),
             "twin_ref": svc.get("twin_ref"),
         }
-        Service.objects.update_or_create(name=svc["name"], defaults=defaults)
+        service, _ = Service.objects.update_or_create(name=svc["name"], defaults=defaults)
+        ensure_service_grant(service)
 
 
 if __name__ == "__main__":

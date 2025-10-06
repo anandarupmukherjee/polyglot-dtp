@@ -3,9 +3,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
-from .models import TwinUI, AccessGrant
+from .models import TwinUI, AccessGrant, Service, ServiceAccessGrant
 import os
 import importlib.util
+from uuid import UUID
 
 
 @api_view(["POST"])
@@ -131,6 +132,46 @@ def grants(request):
     except (User.DoesNotExist, TwinUI.DoesNotExist):
         return Response({"detail": "user or twin not found"}, status=status.HTTP_404_NOT_FOUND)
     deleted, _ = AccessGrant.objects.filter(user=u, twin=t).delete()
+    if deleted:
+        return Response({"ok": True})
+    return Response({"detail": "grant not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(["GET", "POST", "DELETE"])
+@permission_classes([IsAdminUser])
+def service_grants(request):
+    if request.method == "GET":
+        data = [
+            {
+                "user": g.user.username,
+                "service_id": str(g.service.id),
+                "service": g.service.name,
+            }
+            for g in ServiceAccessGrant.objects.select_related("user", "service").all()
+        ]
+        return Response(data)
+
+    username = request.data.get("username")
+    service_id = request.data.get("service_id")
+    if not username or not service_id:
+        return Response({"detail": "username and service_id required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response({"detail": "user not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        service_uuid = UUID(service_id)
+        service = Service.objects.get(id=service_uuid)
+    except (ValueError, Service.DoesNotExist):
+        return Response({"detail": "service not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "POST":
+        ServiceAccessGrant.objects.get_or_create(user=user, service=service)
+        return Response({"ok": True}, status=status.HTTP_201_CREATED)
+
+    deleted, _ = ServiceAccessGrant.objects.filter(user=user, service=service).delete()
     if deleted:
         return Response({"ok": True})
     return Response({"detail": "grant not found"}, status=status.HTTP_404_NOT_FOUND)

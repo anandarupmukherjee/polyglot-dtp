@@ -1,0 +1,107 @@
+[
+  {
+    "id": "inject_publish_trigger",
+    "type": "inject",
+    "z": "template",
+    "name": "Trigger publish",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 140,
+    "wires": [
+      [
+        "function_mqtt_payload"
+      ]
+    ]
+  },
+  {
+    "id": "function_mqtt_payload",
+    "type": "function",
+    "z": "template",
+    "name": "Build MQTT payload",
+    "func": "const topic = flow.get('mqttPublishTopic') || 'sensors/raw/topic';\nlet template = flow.get('mqttPublishTemplate');\nif (!template) {\n  template = JSON.stringify({\n    assetId: 'asset-001',\n    timestamp: '$now',\n    value: 0\n  }, null, 2);\n  flow.set('mqttPublishTemplate', template);\n}\nconst rendered = template.replace('$now', new Date().toISOString());\nlet payload = rendered;\ntry {\n  payload = JSON.parse(rendered);\n} catch (err) {\n  node.warn('Template is not valid JSON, publishing raw string');\n}\nmsg.topic = topic;\nmsg.payload = payload;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "flow.set('mqttPublishTopic', flow.get('mqttPublishTopic') || 'sensors/raw/topic');\nif (!flow.get('mqttPublishTemplate')) {\n  flow.set('mqttPublishTemplate', JSON.stringify({\n    assetId: 'asset-001',\n    timestamp: '$now',\n    value: 0\n  }, null, 2));\n}",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 140,
+    "wires": [
+      [
+        "mqtt_publish",
+        "debug_publish_preview"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_publish",
+    "type": "mqtt out",
+    "z": "template",
+    "name": "MQTT publisher",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correlationData": "",
+    "expiry": "",
+    "broker": "mqtt_broker_local",
+    "x": 660,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "debug_publish_preview",
+    "type": "debug",
+    "z": "template",
+    "name": "Preview",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 660,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "mqtt_broker_local",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "mqtt",
+    "port": "1883",
+    "clientid": "",
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "sessionExpiry": ""
+  }
+]

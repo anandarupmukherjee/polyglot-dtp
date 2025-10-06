@@ -1,0 +1,94 @@
+[
+  {
+    "id": "mqtt_subscribe",
+    "type": "mqtt in",
+    "z": "template",
+    "name": "MQTT subscriber",
+    "topic": "sensors/#",
+    "qos": "1",
+    "datatype": "auto",
+    "broker": "mqtt_broker_local",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "function_parse_optional"
+      ]
+    ]
+  },
+  {
+    "id": "function_parse_optional",
+    "type": "function",
+    "z": "template",
+    "name": "Parse JSON if needed",
+    "func": "if (typeof msg.payload === 'string') {\n  try {\n    msg.payload = JSON.parse(msg.payload);\n  } catch (err) {\n    node.warn('Payload is not JSON, keeping original string');\n  }\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "libs": [],
+    "x": 440,
+    "y": 120,
+    "wires": [
+      [
+        "link_out_stream",
+        "debug_subscriber"
+      ]
+    ]
+  },
+  {
+    "id": "debug_subscriber",
+    "type": "debug",
+    "z": "template",
+    "name": "Subscriber preview",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 680,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "link_out_stream",
+    "type": "link out",
+    "z": "template",
+    "name": "Stream output",
+    "mode": "link",
+    "links": [],
+    "x": 680,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "mqtt_broker_local",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "mqtt",
+    "port": "1883",
+    "clientid": "",
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "sessionExpiry": ""
+  }
+]

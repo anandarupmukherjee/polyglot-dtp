@@ -13,5 +13,6 @@ urlpatterns = [
     path("api/admin/users", admin_views.users),
     path("api/admin/twins", admin_views.twins),
     path("api/admin/grants", admin_views.grants),
+    path("api/admin/service-grants", admin_views.service_grants),
     path("api/admin/scan", admin_views.scan_repo),
 ]

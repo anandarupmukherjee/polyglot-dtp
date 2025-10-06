@@ -1,0 +1,124 @@
+[
+  {
+    "id": "mqtt_orientation_in",
+    "type": "mqtt in",
+    "z": "template",
+    "name": "Orientation topic",
+    "topic": "sensors/orientation/#",
+    "qos": "1",
+    "datatype": "auto",
+    "broker": "mqtt_broker_local",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 170,
+    "y": 120,
+    "wires": [
+      [
+        "function_orientation_parse"
+      ]
+    ]
+  },
+  {
+    "id": "function_orientation_parse",
+    "type": "function",
+    "z": "template",
+    "name": "Normalise Euler payload",
+    "func": "let payload = msg.payload;\nif (typeof payload === 'string') {\n  try {\n    payload = JSON.parse(payload);\n  } catch (err) {\n    node.warn('Unable to parse payload as JSON, forwarding raw value');\n  }\n}\npayload = payload || {};\nconst assetId = payload.assetId || (msg.topic.split('/')[2] || 'asset-001');\nconst roll = Number(payload.roll ?? payload.x ?? 0);\nconst pitch = Number(payload.pitch ?? payload.y ?? 0);\nconst yaw = Number(payload.yaw ?? payload.z ?? 0);\nmsg.payload = {\n  assetId,\n  timestamp: payload.timestamp || new Date().toISOString(),\n  roll,\n  pitch,\n  yaw\n};\nmsg.orientationMagnitude = Math.sqrt(roll*roll + pitch*pitch + yaw*yaw);\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "flow.set('orientationMagnitudeThreshold', flow.get('orientationMagnitudeThreshold') || 15);",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 120,
+    "wires": [
+      [
+        "switch_orientation_alert",
+        "debug_orientation"
+      ]
+    ]
+  },
+  {
+    "id": "switch_orientation_alert",
+    "type": "switch",
+    "z": "template",
+    "name": "Magnitude > threshold",
+    "property": "orientationMagnitude",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "gt",
+        "v": "flow.orientationMagnitudeThreshold",
+        "vt": "flow"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 1,
+    "x": 740,
+    "y": 100,
+    "wires": [
+      [
+        "link_orientation_alert"
+      ]
+    ]
+  },
+  {
+    "id": "debug_orientation",
+    "type": "debug",
+    "z": "template",
+    "name": "Orientation sample",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 740,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "link_orientation_alert",
+    "type": "link out",
+    "z": "template",
+    "name": "Orientation alerts",
+    "mode": "link",
+    "links": [],
+    "x": 980,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "mqtt_broker_local",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "mqtt",
+    "port": "1883",
+    "clientid": "",
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "sessionExpiry": ""
+  }
+]
+
+
+

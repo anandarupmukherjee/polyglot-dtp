@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from .models import TwinUI, AccessGrant, Twin, Service, PortalEvent
+from .models import TwinUI, AccessGrant, ServiceAccessGrant, Twin, Service, PortalEvent
 from .orchestrator import orchestrate_twin
 from .serializers import TwinUISerializer, TwinSerializer, ServiceSerializer
 from django.db import connection
@@ -449,17 +449,24 @@ def registry_list_services(request: HttpRequest):
     qs = Service.objects.all().order_by("name")
     if tenant:
         qs = qs.filter(tenant=tenant)
-    # Apply RBAC when user is not staff OR scope=mine; otherwise (staff + scope=all) show all
     apply_rbac = (not request.user.is_staff) or (scope == "mine")
     if not apply_rbac:
         return Response(ServiceSerializer(qs, many=True).data)
+    explicit_ids = set(ServiceAccessGrant.objects.filter(user=request.user).values_list("service_id", flat=True))
     granted_ui = TwinUI.objects.filter(accessgrant__user=request.user)
     allowed_dtr_ids = {t.dtr_id for t in granted_ui if getattr(t, 'dtr_id', None)}
     allowed_api_urls = {t.ui_url for t in granted_ui}
     items = []
     for s in qs:
+        if s.id in explicit_ids:
+            items.append(ServiceSerializer(s).data)
+            continue
+        interfaces = s.interfaces if isinstance(s.interfaces, dict) else {}
+        if interfaces.get("public") is True:
+            items.append(ServiceSerializer(s).data)
+            continue
         twin_ref_ok = bool(s.twin_ref) and s.twin_ref in allowed_dtr_ids
-        api_ok = isinstance(s.interfaces, dict) and (s.interfaces.get("api") in allowed_api_urls)
+        api_ok = interfaces.get("api") in allowed_api_urls
         if twin_ref_ok or api_ok:
             items.append(ServiceSerializer(s).data)
     return Response(items)
@@ -487,13 +494,21 @@ def registry_my_twins(request: HttpRequest):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def registry_my_services(request: HttpRequest):
+    explicit_ids = set(ServiceAccessGrant.objects.filter(user=request.user).values_list("service_id", flat=True))
     granted_ui = TwinUI.objects.filter(accessgrant__user=request.user)
     allowed_dtr_ids = {t.dtr_id for t in granted_ui if getattr(t, 'dtr_id', None)}
     allowed_api_urls = {t.ui_url for t in granted_ui}
     items = []
     for s in Service.objects.all():
+        if s.id in explicit_ids:
+            items.append(ServiceSerializer(s).data)
+            continue
+        interfaces = s.interfaces if isinstance(s.interfaces, dict) else {}
+        if interfaces.get('public') is True:
+            items.append(ServiceSerializer(s).data)
+            continue
         twin_ref_ok = bool(s.twin_ref) and s.twin_ref in allowed_dtr_ids
-        api_ok = isinstance(s.interfaces, dict) and (s.interfaces.get('api') in allowed_api_urls)
+        api_ok = interfaces.get('api') in allowed_api_urls
         if twin_ref_ok or api_ok:
             items.append(ServiceSerializer(s).data)
     return Response(items)

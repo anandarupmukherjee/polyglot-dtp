@@ -1,0 +1,121 @@
+[
+  {
+    "id": "mqtt_temperature_in",
+    "type": "mqtt in",
+    "z": "template",
+    "name": "Temperature topic",
+    "topic": "sensors/temperature/#",
+    "qos": "2",
+    "datatype": "auto",
+    "broker": "mqtt_broker_local",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "function_temperature_parse"
+      ]
+    ]
+  },
+  {
+    "id": "function_temperature_parse",
+    "type": "function",
+    "z": "template",
+    "name": "Normalise payload",
+    "func": "let reading = msg.payload;\nif (typeof reading === 'string') {\n  try {\n    reading = JSON.parse(reading);\n  } catch (err) {\n    node.warn('Unable to parse payload as JSON, forwarding raw value');\n  }\n}\nif (typeof reading === 'number') {\n  reading = { value: reading };\n}\nconst assetId = reading.assetId || (msg.topic.split('/')[2] || 'asset-001');\nmsg.payload = {\n  assetId,\n  timestamp: reading.timestamp || new Date().toISOString(),\n  celsius: Number(reading.celsius ?? reading.value ?? reading.temperature ?? 0)\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "if (!flow.get('temperatureThreshold')) {\n  flow.set('temperatureThreshold', 28);\n}",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 120,
+    "wires": [
+      [
+        "switch_temperature_threshold",
+        "debug_temperature"
+      ]
+    ]
+  },
+  {
+    "id": "switch_temperature_threshold",
+    "type": "switch",
+    "z": "template",
+    "name": "Above threshold?",
+    "property": "payload.celsius",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "gt",
+        "v": "flow.temperatureThreshold",
+        "vt": "flow"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 1,
+    "x": 720,
+    "y": 120,
+    "wires": [
+      [
+        "link_temperature_alert"
+      ]
+    ]
+  },
+  {
+    "id": "debug_temperature",
+    "type": "debug",
+    "z": "template",
+    "name": "Temperature sample",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 720,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "link_temperature_alert",
+    "type": "link out",
+    "z": "template",
+    "name": "Hot path",
+    "mode": "link",
+    "links": [],
+    "x": 930,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "mqtt_broker_local",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "mqtt",
+    "port": "1883",
+    "clientid": "",
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "sessionExpiry": ""
+  }
+]

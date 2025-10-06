@@ -24,6 +24,15 @@ class AccessGrant(models.Model):
         unique_together = ('user', 'twin')
 
 
+class ServiceAccessGrant(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    service = models.ForeignKey("Service", on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'user_service_map'
+        unique_together = ('user', 'service')
+
+
 class Twin(models.Model):
     """Digital Twin Registry entry (minimal RA envelope).
 
@@ -34,7 +43,7 @@ class Twin(models.Model):
     metadata = models.JSONField(default=dict)  # includes status, domain, etc.
     interfaces = models.JSONField(default=dict)  # { data_streams:[], api:"" }
     dependencies = models.JSONField(default=dict)  # { static:[], dynamic:[] }
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -50,7 +59,7 @@ class Service(models.Model):
     interfaces = models.JSONField(default=dict)  # { input:[], output:[], api:"" }
     health = models.CharField(max_length=256, blank=True, null=True)  # "/health" or URL
     twin_ref = models.CharField(max_length=200, blank=True, null=True)  # optional linked twin_id
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -70,3 +79,12 @@ class PortalEvent(models.Model):
 
     class Meta:
         db_table = 'portal_event'
+
+
+class BootstrapState(models.Model):
+    key = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        db_table = 'bootstrap_state'
