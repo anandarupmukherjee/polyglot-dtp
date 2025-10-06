@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dtp-backend
+  namespace: ${NAMESPACE:-dtp}
+spec:
+  selector: { app: dtp-backend }
+  ports: [ { port: 80, targetPort: 8000 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dtp-backend
+  namespace: ${NAMESPACE:-dtp}
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: dtp-backend } }
+  template:
+    metadata: { labels: { app: dtp-backend } }
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values: ["dtp-core"]
+      containers:
+      - name: backend
+        image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/dtp-backend:${IMAGE_TAG}
+        ports: [ { containerPort: 8000 } ]
+        env:
+        - { name: DJANGO_SECRET_KEY, valueFrom: { secretKeyRef: { name: django-secret, key: DJANGO_SECRET_KEY } } }
+        - { name: DATABASE_URL,     value: "postgresql://postgres:${DJANGO_SECRET_KEY}@pg:5432/dtp" }
+        - { name: INFLUX_URL,       value: "http://influxdb:8086" }
+        - { name: INFLUX_TOKEN,     valueFrom: { secretKeyRef: { name: influx-creds, key: INFLUX_TOKEN } } }
+        - { name: NEO4J_URL,        value: "bolt://neo4j:7687" }
+        - { name: NEO4J_USER,       value: "neo4j" }
+        - { name: NEO4J_PASSWORD,   valueFrom: { secretKeyRef: { name: neo4j-auth, key: NEO4J_AUTH } } }
+        - { name: MINIO_ENDPOINT,   value: "http://minio:9000" }
+        - { name: MINIO_ACCESS_KEY, valueFrom: { secretKeyRef: { name: minio-creds, key: MINIO_ACCESS_KEY } } }
+        - { name: MINIO_SECRET_KEY, valueFrom: { secretKeyRef: { name: minio-creds, key: MINIO_SECRET_KEY } } }

@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: ${NAMESPACE:-dtp}
+spec:
+  selector: { app: minio }
+  ports:
+  - { name: api, port: 9000, targetPort: 9000 }
+  - { name: console, port: 9001, targetPort: 9001 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: ${NAMESPACE:-dtp}
+spec:
+  serviceName: minio
+  replicas: 1
+  selector: { matchLabels: { app: minio } }
+  template:
+    metadata: { labels: { app: minio } }
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values: ["dtp-core"]
+      containers:
+      - name: minio
+        image: minio/minio:RELEASE.2025-01-05T00-00-00Z
+        args: ["server","/data","--console-address",":9001"]
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom: { secretKeyRef: { name: minio-creds, key: MINIO_ACCESS_KEY } }
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom: { secretKeyRef: { name: minio-creds, key: MINIO_SECRET_KEY } }
+        ports:
+        - { containerPort: 9000, name: api }
+        - { containerPort: 9001, name: console }
+        volumeMounts:
+        - { name: data, mountPath: /data }
+  volumeClaimTemplates:
+  - metadata: { name: data }
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: pd-ssd-rwo
+      resources: { requests: { storage: ${MINIO_STORAGE_GI}Gi } }

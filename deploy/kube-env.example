@@ -1,0 +1,36 @@
+# ======= REQUIRED =======
+PROJECT_ID=dt-demo-hospital
+REGION=europe-west2
+CLUSTER_NAME=dtp-single
+ARTIFACT_REPO=dtp-repo
+# Optional custom domain. Leave empty to use LoadBalancers for UI/API.
+DOMAIN=
+
+# Image tags
+IMAGE_TAG=local-dev
+
+# Paths (relative to repo root unless absolute)
+REPO_DIR=..
+BACKEND_PATH=..
+UI_PATH=../ui
+
+# Secrets
+DJANGO_SECRET_KEY=Jkkjoup6nkNirORfrXEJdzIDWW0TFGF4ugKk-EVXHn_ytuPoAwIO-ghQckHeuacA
+MINIO_ACCESS_KEY=yHPTkLVodFbNIQlTmtIEmwuko434Lvmw
+MINIO_SECRET_KEY=JhAQbpafpFKbse0WVvfOxvtM7dwFKbgXMWrM8h6VciLuVoNLFf8IrpA-3OQo0xdi
+INFLUX_TOKEN=guJWgp9c4HC6mBV_AysAF-RdBLWASMiL3Sup_aP9LJo
+NEO4J_PASSWORD=sm77Agi53h8MIx4YCHPSqReOXKVmu33Q
+
+# Backups (optional). Example: gs://my-dtp-backups
+GCS_BUCKET=
+
+# Node sizing
+NODE_MACHINE_TYPE=e2-standard-16
+NODE_DISK_TYPE=pd-ssd
+NODE_DISK_SIZE_GB=200
+
+# Storage sizing (Gi)
+PG_STORAGE_GI=2
+INFLUX_STORAGE_GI=2
+NEO4J_STORAGE_GI=2
+MINIO_STORAGE_GI=1

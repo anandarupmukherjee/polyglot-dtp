@@ -1,0 +1,27 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: dtp-cert
+  namespace: ${NAMESPACE:-dtp}
+spec:
+  domains: [ "${DOMAIN}" ]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dtp-ingress
+  namespace: ${NAMESPACE:-dtp}
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: "dtp-cert"
+spec:
+  rules:
+  - host: ${DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend: { service: { name: dtp-ui, port: { number: 80 } } }
+      - path: /api
+        pathType: Prefix
+        backend: { service: { name: dtp-backend, port: { number: 80 } } }

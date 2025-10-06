@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-conf
+  namespace: ${NAMESPACE:-dtp}
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous false
+    password_file /mosquitto/config/pwfile
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mosquitto-passwd
+  namespace: ${NAMESPACE:-dtp}
+type: Opaque
+stringData:
+  pwfile: |
+    # TODO: generate with mosquitto_passwd and paste here
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: ${NAMESPACE:-dtp}
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: mosquitto } }
+  template:
+    metadata: { labels: { app: mosquitto } }
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values: ["dtp-core"]
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:2.0
+        ports: [ { containerPort: 1883, name: mqtt } ]
+        volumeMounts:
+        - { name: conf, mountPath: /mosquitto/config/mosquitto.conf, subPath: mosquitto.conf }
+        - { name: pw,   mountPath: /mosquitto/config/pwfile,         subPath: pwfile }
+      volumes:
+      - name: conf
+        configMap: { name: mosquitto-conf }
+      - name: pw
+        secret: { secretName: mosquitto-passwd }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt
+  namespace: ${NAMESPACE:-dtp}
+spec:
+  type: LoadBalancer
+  selector: { app: mosquitto }
+  ports:
+  - { name: mqtt, port: 1883, targetPort: 1883 }
