@@ -1,7 +1,9 @@
 import os, uuid
 from neo4j import GraphDatabase
+from dotenv import load_dotenv
 
-URI = "bolt://neo4j:7687"
+load_dotenv()
+URI = "bolt://localhost:7687"
 AUTH = ("neo4j", os.getenv("NEO4J_PASSWORD","neo"))
 
 def run():

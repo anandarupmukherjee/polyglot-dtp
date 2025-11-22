@@ -47,7 +47,7 @@ jobs:
           NET=dtp-${GITHUB_JOB}-${GITHUB_RUN_ID}
           sudo docker run --rm --network "$NET" \
             -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -v "$GITHUB_WORKSPACE/sql:/app/sql:ro" \
-            -w /app python:3.11 bash -lc "pip install -r requirements.txt && python scripts/test_pg_timescale.py"
+            -w /app python:3.11 bash -lc "pip install -r requirements.txt && python scripts/test/test_pg_timescale.py"
       - name: Collect PG logs on failure
         if: failure()
         run: |
@@ -90,7 +90,7 @@ jobs:
           sudo docker run --rm --network "$NET" \
             -e NEO4J_PASSWORD \
             -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -w /app \
-            python:3.11 bash -lc "pip install -r requirements.txt && python scripts/test_neo4j.py"
+            python:3.11 bash -lc "pip install -r requirements.txt && python scripts/test/test_neo4j.py"
       - name: Cleanup
         if: always()
         run: |
@@ -133,7 +133,7 @@ jobs:
           sudo docker run --rm --network "$NET" \
             -e INFLUX_TOKEN -e INFLUX_ORG -e INFLUX_BUCKET \
             -v "$GITHUB_WORKSPACE/scripts:/app/scripts:ro" -w /app \
-            python:3.11 bash -lc "pip install -r requirements.txt && python scripts/test_influx.py"
+            python:3.11 bash -lc "pip install -r requirements.txt && python scripts/test/test_influx.py"
       - name: Cleanup
         if: always()
         run: |

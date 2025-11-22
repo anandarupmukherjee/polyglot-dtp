@@ -15,7 +15,7 @@ logs:
 	docker compose logs -f --tail=200
 
 test:
-	./.venv/bin/python scripts/test_all.py
+	./.venv/bin/python scripts/test/test_all.py
 
 ci:
-	./.venv/bin/pip install -qq -r requirements.txt && ./.venv/bin/python scripts/test_all.py
+	./.venv/bin/pip install -qq -r requirements.txt && ./.venv/bin/python scripts/test/test_all.py

@@ -1,8 +1,10 @@
 import os, uuid, time
 import psycopg
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 
-PG_DSN = f"dbname={os.getenv('PGDATABASE','dtp')} user={os.getenv('PGUSER','dtp')} password={os.getenv('PGPASSWORD','dtp')} host=db port=5432"
+load_dotenv()
+PG_DSN = f"dbname={os.getenv('PGDATABASE','dtp')} user={os.getenv('PGUSER','dtp')} password={os.getenv('PGPASSWORD','dtp')} host=localhost port=5432"
 
 def run():
     sig_id = uuid.uuid4()

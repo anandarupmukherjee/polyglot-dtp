@@ -1,12 +1,14 @@
 import os, io, uuid
 from urllib.parse import urlparse
 from minio import Minio
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def _build_client():
     # Pick endpoint from env. Locally this will be http://localhost:9000 (MinIO),
     # in CI it will be http://localhost:4566 (LocalStack S3).
-    endpoint_env = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
+    endpoint_env = "http://localhost:9100"
     parsed = urlparse(endpoint_env)
     endpoint = parsed.netloc or endpoint_env  # strip scheme for Minio client
     secure = (parsed.scheme == "https")
