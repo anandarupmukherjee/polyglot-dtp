@@ -113,11 +113,18 @@ class Command(BaseCommand):
                 },
                 force=force,
             )
+            room1_ui, _ = TwinUI.objects.get_or_create(
+                name="Room 1",
+                defaults={"ui_url": "http://localhost:8086", "dtr_id": "dt:RoomSensor_101"},
+            )
+            if not room1_ui.dtr_id:
+                room1_ui.dtr_id = "dt:RoomSensor_101"
+                room1_ui.save(update_fields=["dtr_id"])
             self._ensure_twin(
                 "dt:RoomSensor_101",
                 {
                     "tenant": "demo",
-                    "metadata": {"status": "instantiated", "domain": ["Temperature"]},
+                    "metadata": {"name": "Room 1", "status": "instantiated", "domain": ["Temperature"]},
                     "interfaces": {
                         "data_streams": ["MQTT:dtp/sensors/room1/temp"],
                         "api": "http://localhost:8086",
@@ -126,11 +133,18 @@ class Command(BaseCommand):
                 },
                 force=force,
             )
+            room2_ui, _ = TwinUI.objects.get_or_create(
+                name="Room 2",
+                defaults={"ui_url": "http://localhost:8086", "dtr_id": "dt:RoomSensor_102"},
+            )
+            if not room2_ui.dtr_id:
+                room2_ui.dtr_id = "dt:RoomSensor_102"
+                room2_ui.save(update_fields=["dtr_id"])
             self._ensure_twin(
                 "dt:RoomSensor_102",
                 {
                     "tenant": "demo",
-                    "metadata": {"status": "instantiated", "domain": ["Temperature"]},
+                    "metadata": {"name": "Room 2", "status": "instantiated", "domain": ["Temperature"]},
                     "interfaces": {
                         "data_streams": ["MQTT:dtp/sensors/room2/temp"],
                         "api": "http://localhost:8086",

@@ -63,7 +63,7 @@ networks:
   m5_net: {}
   main_net:
     external: true
-    name: dt_polyglot_db_default
+    name: polyglotdtp_default
 
 volumes:
   influxdata: {}

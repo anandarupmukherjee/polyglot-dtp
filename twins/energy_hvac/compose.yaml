@@ -27,9 +27,9 @@ services:
       LOCAL_TOKEN: energy-token-123
       SITE_ID: site-a
       ENERGY_RATE: "0.25"
-      MQTT_BROKER_HOST: mqtt.local
+      MQTT_BROKER_HOST: mqtt
       MQTT_BROKER_PORT: "1883"
-      CENTRAL_INFLUX_URL: http://influx.local:8086
+      CENTRAL_INFLUX_URL: http://influx:8086
       CENTRAL_INFLUX_ORG: ${INFLUX_ORG}
       CENTRAL_INFLUX_BUCKET: ${INFLUX_BUCKET}
       CENTRAL_INFLUX_TOKEN: ${INFLUX_TOKEN}
@@ -58,7 +58,7 @@ networks:
   energy_net: {}
   main_net:
     external: true
-    name: dt_polyglot_db_default
+    name: polyglotdtp_default
 
 volumes:
   influxdata: {}

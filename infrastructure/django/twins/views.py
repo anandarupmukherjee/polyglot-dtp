@@ -515,13 +515,17 @@ def registry_my_services(request: HttpRequest):
 
 # --- Portal SSE ---
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
 def portal_stream(request: HttpRequest):
-    tenant = request.query_params.get("tenant") or "default"
+    """Server-Sent Events endpoint for portal live updates.
+
+    Uses a plain Django view (not DRF @api_view) so that the
+    StreamingHttpResponse with content_type='text/event-stream' is
+    returned directly — DRF content negotiation would reject it with 406.
+    """
+    tenant = request.GET.get("tenant") or "default"
     # stream events newer than optional since parameter
     try:
-        since_param = request.query_params.get("since")
+        since_param = request.GET.get("since")
         since_dt = datetime.fromisoformat(since_param) if since_param else (now() - timedelta(minutes=10))
     except Exception:
         since_dt = now() - timedelta(minutes=10)
@@ -542,6 +546,11 @@ def portal_stream(request: HttpRequest):
                 yield f"data: {data}\n\n"
                 last_ts = ev.created_at
             time.sleep(1)
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
 
 def _sync_portal_card_for_twin(tw: Twin):
     """Ensure a TwinUI portal card exists and is linked to this DTR twin.
@@ -669,8 +678,6 @@ def last_data_my(request: HttpRequest):
             last_ts, source = _compute_last_for_twin(tw)
         result.append({"twin_id": tw.twin_id, "last_ts": last_ts, "source": source})
     return Response({"items": result, "count": len(result)})
-
-    return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
 
 
 @api_view(["GET"])
