@@ -102,6 +102,7 @@ services:
 
   django:
     build: ./infrastructure/django
+    image: ghcr.io/anandarupmukherjee/polyglot-dtp/django:latest
     environment:
       - DJANGO_DEBUG=1
       - SECRET_KEY=devsecret
@@ -116,12 +117,17 @@ services:
       - INFLUX_ORG=${INFLUX_ORG}
       - INFLUX_BUCKET=${INFLUX_BUCKET}
       - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - HOST_PROJECT_ROOT=${PWD}
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
     depends_on:
       db:
         condition: service_healthy
     ports: ["8085:8000"]
     volumes:
       - ./twins:/app/twins_repo:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./media:/app/media
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/healthz', timeout=3)\""]
@@ -136,6 +142,7 @@ services:
       args:
         # Use same-origin; Nginx proxies /api -> django
         VITE_API_BASE: ""
+    image: ghcr.io/anandarupmukherjee/polyglot-dtp/reactui:latest
     ports: ["8083:80"]
     links:
       - django
