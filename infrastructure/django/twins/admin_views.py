@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
-from .models import TwinUI, AccessGrant, Service, ServiceAccessGrant
+from .models import TwinUI, Twin, AccessGrant, Service, ServiceAccessGrant
 import os
 import importlib.util
 from uuid import UUID
@@ -89,14 +89,18 @@ def twins(request):
             return Response({"detail": "name and ui_url required"}, status=status.HTTP_400_BAD_REQUEST)
         tw = TwinUI.objects.create(name=name, ui_url=ui_url, dtr_id=dtr_id)
         return Response(TwinUISerializer(tw).data, status=status.HTTP_201_CREATED)
-    # DELETE twin {twin_id}
+    # DELETE twin {twin_id} — removes portal card AND registry entry
     twin_id = request.data.get("twin_id")
     if not twin_id:
         return Response({"detail": "twin_id required"}, status=status.HTTP_400_BAD_REQUEST)
-    deleted, _ = TwinUI.objects.filter(pk=twin_id).delete()
-    if deleted:
-        return Response({"ok": True})
-    return Response({"detail": "twin not found"}, status=status.HTTP_404_NOT_FOUND)
+    ui = TwinUI.objects.filter(pk=twin_id).first()
+    if not ui:
+        return Response({"detail": "twin not found"}, status=status.HTTP_404_NOT_FOUND)
+    # Also delete the linked registry twin if it exists
+    if ui.dtr_id:
+        Twin.objects.filter(twin_id=ui.dtr_id).delete()
+    ui.delete()
+    return Response({"ok": True})
 
 
 @api_view(["GET", "POST", "DELETE"])
