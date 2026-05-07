@@ -88,3 +88,94 @@ class BootstrapState(models.Model):
 
     class Meta:
         db_table = 'bootstrap_state'
+
+
+class TwinRegistration(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('validating', 'Validating'),
+        ('building', 'Building'),
+        ('ready', 'Ready'),
+        ('failed', 'Failed'),
+    ]
+    MODE_CHOICES = [
+        ('platform', 'Platform-Hosted'),
+        ('external', 'External/Self-Hosted'),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    mode = models.CharField(max_length=16, choices=MODE_CHOICES)
+    twin_name = models.CharField(max_length=200)
+    twin_id_requested = models.CharField(max_length=200, blank=True)
+    tenant = models.CharField(max_length=200, default='demo')
+    domain_tags = models.JSONField(default=list)
+
+    # Mode A: platform-hosted
+    github_url = models.URLField(blank=True, null=True)
+    upload_path = models.CharField(max_length=512, blank=True, null=True)
+
+    # Mode B: external / self-hosted
+    external_api_url = models.URLField(blank=True, null=True)
+    mqtt_broker_host = models.CharField(max_length=256, blank=True, null=True)
+    mqtt_broker_port = models.IntegerField(default=1883, blank=True, null=True)
+    mqtt_topics = models.JSONField(default=list)
+    data_streams = models.JSONField(default=list)
+
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='draft')
+    status_detail = models.TextField(blank=True, null=True)
+    build_log = models.TextField(blank=True, null=True)
+    resulting_twin_id = models.CharField(max_length=200, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'twin_registration'
+
+
+class TwinSynthesis(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('locked', 'Locked'),
+        ('building', 'Building'),
+        ('ready', 'Ready'),
+        ('failed', 'Failed'),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    canvas_state = models.JSONField(default=dict)
+    wiring = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='draft')
+    build_log = models.TextField(blank=True, null=True)
+    resulting_twin_id = models.CharField(max_length=200, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'twin_synthesis'
+
+
+class ProcessModel(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('locked', 'Locked'),
+        ('built', 'Built'),
+        ('failed', 'Failed'),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    canvas_state = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='draft')
+    sim_config = models.JSONField(default=dict)
+    sim_results = models.JSONField(default=dict)
+    sim_log = models.TextField(blank=True, null=True)
+    resulting_twin_id = models.CharField(max_length=200, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'process_model'

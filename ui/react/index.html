@@ -6,21 +6,225 @@
     <title>DTP Portal</title>
     <style>
       *, *::before, *::after { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; min-height: 100vh; }
+      html, body { margin: 0; padding: 0; min-height: 100vh; overflow-x: hidden; }
       body {
         background: linear-gradient(135deg, #0d1117 0%, #0f0c29 35%, #1a1040 65%, #0d1117 100%);
         background-attachment: fixed;
         color: #f0f4f8;
         font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       }
-      #root { min-height: 100vh; }
+      #root { min-height: 100vh; position: relative; z-index: 1; }
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
       ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
       ::placeholder { color: rgba(255,255,255,0.3) !important; }
+
+      /* ── Glass orb animations ──────────────────────────────────────── */
+      @keyframes float1 {
+        0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+        25%      { transform: translate(30px, -40px) rotate(90deg) scale(1.05); }
+        50%      { transform: translate(-20px, -70px) rotate(180deg) scale(0.95); }
+        75%      { transform: translate(40px, -30px) rotate(270deg) scale(1.02); }
+      }
+      @keyframes float2 {
+        0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+        25%      { transform: translate(-40px, -20px) rotate(-60deg) scale(1.08); }
+        50%      { transform: translate(20px, -60px) rotate(-120deg) scale(0.92); }
+        75%      { transform: translate(-30px, -50px) rotate(-180deg) scale(1.03); }
+      }
+      @keyframes float3 {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        33%      { transform: translate(25px, -50px) scale(1.1); }
+        66%      { transform: translate(-35px, -25px) scale(0.9); }
+      }
+      @keyframes pulse-glow {
+        0%, 100% { opacity: 0.5; filter: blur(60px); }
+        50%      { opacity: 0.8; filter: blur(80px); }
+      }
+      @keyframes spin-slow {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+      }
+
+      /* ── Glass orb base ────────────────────────────────────────────── */
+      .glass-orb {
+        position: fixed;
+        pointer-events: none;
+        z-index: 0;
+        border-radius: 50%;
+      }
+      .glass-orb::before, .glass-orb::after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+      }
+
+      /* Orb 1 — 3-arm connector (top-right) */
+      .glass-orb-1 {
+        width: 220px; height: 220px;
+        top: 5%; right: 8%;
+        background: radial-gradient(ellipse at 30% 30%,
+          rgba(120,200,255,0.25) 0%,
+          rgba(80,160,230,0.15) 30%,
+          rgba(40,100,180,0.08) 60%,
+          transparent 80%
+        );
+        animation: float1 20s ease-in-out infinite;
+      }
+      .glass-orb-1::before {
+        width: 70%; height: 50%;
+        top: 10%; left: 15%;
+        background: radial-gradient(ellipse at 40% 30%,
+          rgba(180,230,255,0.4) 0%,
+          rgba(120,200,255,0.1) 60%,
+          transparent 100%
+        );
+        transform: rotate(-15deg);
+        filter: blur(4px);
+      }
+      .glass-orb-1::after {
+        width: 140%; height: 140%;
+        top: -20%; left: -20%;
+        background: radial-gradient(circle,
+          rgba(100,180,255,0.12) 0%,
+          transparent 70%
+        );
+        animation: pulse-glow 8s ease-in-out infinite;
+      }
+
+      /* Orb 2 — 5-petal flower (bottom-left) */
+      .glass-orb-2 {
+        width: 180px; height: 180px;
+        bottom: 15%; left: 5%;
+        background: radial-gradient(ellipse at 40% 40%,
+          rgba(140,210,255,0.22) 0%,
+          rgba(90,170,240,0.12) 40%,
+          rgba(50,120,200,0.06) 65%,
+          transparent 85%
+        );
+        animation: float2 25s ease-in-out infinite;
+      }
+      .glass-orb-2::before {
+        width: 60%; height: 40%;
+        top: 20%; left: 20%;
+        background: radial-gradient(ellipse at 50% 30%,
+          rgba(200,240,255,0.45) 0%,
+          rgba(140,210,255,0.1) 70%,
+          transparent 100%
+        );
+        transform: rotate(10deg);
+        filter: blur(3px);
+      }
+      .glass-orb-2::after {
+        width: 130%; height: 130%;
+        top: -15%; left: -15%;
+        background: radial-gradient(circle,
+          rgba(120,190,255,0.1) 0%,
+          transparent 65%
+        );
+        animation: pulse-glow 10s ease-in-out infinite 2s;
+      }
+
+      /* Orb 3 — sphere (center-left, low) */
+      .glass-orb-3 {
+        width: 140px; height: 140px;
+        top: 45%; right: 3%;
+        background: radial-gradient(ellipse at 35% 35%,
+          rgba(160,220,255,0.3) 0%,
+          rgba(100,180,240,0.15) 35%,
+          rgba(60,130,210,0.08) 60%,
+          rgba(30,80,160,0.03) 80%,
+          transparent 100%
+        );
+        box-shadow:
+          inset -8px -8px 20px rgba(0,40,100,0.15),
+          inset 6px 6px 15px rgba(180,230,255,0.15),
+          0 0 40px rgba(100,180,255,0.08);
+        animation: float3 18s ease-in-out infinite;
+      }
+      .glass-orb-3::before {
+        width: 55%; height: 35%;
+        top: 12%; left: 18%;
+        background: radial-gradient(ellipse at 50% 40%,
+          rgba(220,245,255,0.5) 0%,
+          rgba(160,220,255,0.15) 60%,
+          transparent 100%
+        );
+        transform: rotate(-20deg);
+        filter: blur(2px);
+      }
+      .glass-orb-3::after {
+        width: 120%; height: 120%;
+        top: -10%; left: -10%;
+        background: radial-gradient(circle,
+          rgba(130,200,255,0.08) 0%,
+          transparent 60%
+        );
+        animation: pulse-glow 7s ease-in-out infinite 1s;
+      }
+
+      /* Small accent orbs */
+      .glass-orb-4 {
+        width: 80px; height: 80px;
+        top: 70%; left: 50%;
+        background: radial-gradient(ellipse at 30% 30%,
+          rgba(130,200,255,0.2) 0%,
+          rgba(80,150,220,0.08) 50%,
+          transparent 80%
+        );
+        animation: float1 22s ease-in-out infinite 5s;
+      }
+      .glass-orb-5 {
+        width: 60px; height: 60px;
+        top: 20%; left: 30%;
+        background: radial-gradient(ellipse at 35% 35%,
+          rgba(150,210,255,0.18) 0%,
+          rgba(90,160,230,0.06) 50%,
+          transparent 80%
+        );
+        animation: float2 28s ease-in-out infinite 3s;
+      }
+
+      /* ── Image-based orbs (when PNGs are provided) ─────────────────── */
+      .glass-orb-img {
+        position: fixed;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.35;
+        filter: blur(0.5px) drop-shadow(0 0 30px rgba(100,180,255,0.2));
+      }
+      .glass-orb-img.orb-img-1 {
+        width: 240px; height: 240px;
+        top: 3%; right: 6%;
+        animation: float1 20s ease-in-out infinite, spin-slow 60s linear infinite;
+      }
+      .glass-orb-img.orb-img-2 {
+        width: 200px; height: 200px;
+        bottom: 10%; left: 4%;
+        animation: float2 25s ease-in-out infinite;
+      }
+      .glass-orb-img.orb-img-3 {
+        width: 150px; height: 150px;
+        top: 42%; right: 2%;
+        animation: float3 18s ease-in-out infinite;
+      }
     </style>
   </head>
   <body>
+    <!-- Floating glass orbs (CSS-generated) -->
+    <div class="glass-orb glass-orb-1"></div>
+    <div class="glass-orb glass-orb-2"></div>
+    <div class="glass-orb glass-orb-3"></div>
+    <div class="glass-orb glass-orb-4"></div>
+    <div class="glass-orb glass-orb-5"></div>
+
+    <!--
+      To use the actual PNG images instead, uncomment these and place images in public/assets/:
+      <img src="/assets/glass-connector.png" class="glass-orb-img orb-img-1" alt="" />
+      <img src="/assets/glass-flower.png"    class="glass-orb-img orb-img-2" alt="" />
+      <img src="/assets/glass-sphere.png"    class="glass-orb-img orb-img-3" alt="" />
+    -->
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
